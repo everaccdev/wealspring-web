@@ -41,7 +41,7 @@ const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: aw
               <p>{d.subtitle} · {d.cards} cards</p>
               {d.includedWithFounders && <span class="tag">Included for founders</span>}
               {d.price && (
-                <button type="button" class="btn btn-outline buy" data-deck={d.id} data-name={d.name}>
+                <button type="button" class="btn btn-outline buy" data-deck={d.id}>
                   Buy · {d.price.amount}
                 </button>
               )}
@@ -52,58 +52,31 @@ const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: aw
     </div>
   </section>
 
-  <dialog id="buy-dialog">
-    <form id="buy-form" method="dialog" novalidate>
-      <h2 id="buy-title">Buy</h2>
-      <label for="buy-email">Your Wealspring email</label>
-      <input id="buy-email" type="email" autocomplete="email" placeholder="your@email.com" required />
-      <p class="hint">The deck is added to the account with this email. New here? We’ll set one up.</p>
-      <p class="error" id="buy-error" role="alert"></p>
-      <div class="actions">
-        <button type="button" class="btn btn-outline" id="buy-cancel">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="buy-submit">Continue to checkout</button>
-      </div>
-    </form>
-  </dialog>
 </Base>
 
 <script>
-  const dialog = document.getElementById('buy-dialog') as HTMLDialogElement;
-  const form = document.getElementById('buy-form') as HTMLFormElement;
-  const email = document.getElementById('buy-email') as HTMLInputElement;
-  const error = document.getElementById('buy-error')!;
-  const submit = document.getElementById('buy-submit') as HTMLButtonElement;
-  let deckId = '';
-
+  // Buy opens Stripe's checkout, which asks for the email; the deck goes to
+  // the Wealspring account with that email (a new one if there isn't one).
   document.querySelectorAll<HTMLButtonElement>('.buy').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      deckId = btn.dataset.deck!;
-      document.getElementById('buy-title')!.textContent = `Buy ${btn.dataset.name}`;
-      error.textContent = '';
-      dialog.showModal();
-      email.focus();
+    const label = btn.textContent;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Opening checkout…';
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'deck', deckId: btn.dataset.deck }),
+        });
+        const data = await res.json();
+        if (data.url) { location.href = data.url; return; }
+        alert(data.message || 'Checkout couldn’t start. Please try again.');
+      } catch {
+        alert('Network error. Check your connection and try again.');
+      }
+      btn.disabled = false;
+      btn.textContent = label;
     });
-  });
-  document.getElementById('buy-cancel')!.addEventListener('click', () => dialog.close());
-
-  form.addEventListener('submit', async (ev) => {
-    ev.preventDefault();
-    error.textContent = '';
-    if (!email.value.includes('@')) { error.textContent = 'Please enter your email.'; return; }
-    submit.disabled = true;
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'deck', deckId, email: email.value.trim() }),
-      });
-      const data = await res.json();
-      if (data.url) { location.href = data.url; return; }
-      error.textContent = data.message || 'Checkout couldn’t start. Please try again.';
-    } catch {
-      error.textContent = 'Network error. Check your connection and try again.';
-    }
-    submit.disabled = false;
   });
 </script>
 
@@ -119,20 +92,5 @@ const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: aw
   .deck p { font-size: 0.85rem; color: var(--cream-dim); line-height: 1.5; }
   .tag { align-self: flex-start; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
   .buy { margin-top: 8px; justify-content: center; padding: 10px 16px; }
-  dialog {
-    margin: auto; width: min(440px, calc(100% - 32px)); padding: 28px; border-radius: 16px;
-    border: 1px solid rgba(206, 166, 54, 0.3); background: #070a18; color: var(--cream);
-  }
-  dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
-  dialog form { display: flex; flex-direction: column; gap: 10px; }
-  dialog h2 { font-size: 1.6rem; margin-bottom: 6px; }
-  label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255, 255, 255, 0.45); }
-  input {
-    font: inherit; font-size: 1rem; font-weight: 400; color: #fff;
-    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 12px; padding: 14px 16px;
-  }
-  .hint { font-size: 0.82rem; color: rgba(200, 196, 184, 0.6); }
-  .error { min-height: 1.2em; font-size: 0.85rem; color: rgba(230, 120, 110, 0.95); }
-  .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
+  .buy:disabled { opacity: 0.6; cursor: default; }
 </style>
