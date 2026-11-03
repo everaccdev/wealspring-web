@@ -10,7 +10,7 @@
 export const prerender = false;
 
 import type { APIRoute } from 'astro';
-import { stripe } from '../../lib/stripe';
+import { stripe, priceByLookupKey } from '../../lib/stripe';
 import { APP, BUNDLE_APPS, FOUNDERS_PRODUCTS, expansionById, type FoundersPlan, type FoundersProduct } from '../../lib/catalog';
 import { getFounderCount } from '../../lib/founderCount';
 
@@ -28,7 +28,7 @@ export const POST: APIRoute = async ({ request, site }) => {
     if (body?.kind === 'founders') {
       const plan: FoundersPlan = body?.plan === 'monthly' ? 'monthly' : 'annual';
       const product: FoundersProduct = body?.product === 'bundle' ? 'bundle' : 'wealspring';
-      const priceId = FOUNDERS_PRODUCTS[product][plan];
+      const priceId = (await priceByLookupKey(FOUNDERS_PRODUCTS[product][plan]))?.id;
       if (!priceId) return json(503, { error: 'not_configured', message: 'Founders pricing isn’t open yet.' });
 
       // The cap is real: if the count can't be read, refuse rather than risk
@@ -58,13 +58,14 @@ export const POST: APIRoute = async ({ request, site }) => {
 
     if (body?.kind === 'deck') {
       const deck = expansionById(String(body?.deckId || ''));
-      if (!deck?.priceId) return json(404, { error: 'unknown_deck', message: 'That deck isn’t for sale.' });
+      const priceId = deck && (await priceByLookupKey(deck.lookupKey))?.id;
+      if (!priceId) return json(404, { error: 'unknown_deck', message: 'That deck isn’t for sale.' });
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         customer_email: email,
         customer_creation: 'always',
         allow_promotion_codes: true,
-        line_items: [{ price: deck.priceId, quantity: 1 }],
+        line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${base}/decks/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${base}/decks`,
         metadata: { app: APP, apps: APP, kind: 'deck', deckId: deck.id, ...(uid && { uid }) },

@@ -7,7 +7,7 @@ import Base from '../layouts/Base.astro';
 import { FREE_DECKS, EXPANSIONS } from '../lib/catalog';
 import { priceLabel } from '../lib/stripe';
 
-const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: await priceLabel(e.priceId) })));
+const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: await priceLabel(e.lookupKey) })));
 ---
 
 <Base title="Decks — Wealspring" description="Every Wealspring deck: six free traditions, and expansions to add.">
