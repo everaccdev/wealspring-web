@@ -70,13 +70,10 @@ const benefits = [
             <span class="per" id="per">{plans[first]!.annual.per} · cancel anytime</span>
           </div>
           <form id="checkout-form" novalidate>
-            <label for="email">Your email</label>
-            <input id="email" type="email" autocomplete="email" placeholder="your@email.com" required />
-            <p class="hint" id="hint">Use the email you sign in to Wealspring with, or the one you’d like to.</p>
-            <p class="error" id="error" role="alert"></p>
             <button type="submit" class="btn btn-primary" id="submit">Become a founder</button>
+            <p class="error" id="error" role="alert"></p>
           </form>
-          <p class="fine">Secure checkout by Stripe.</p>
+          <p class="fine" id="hint">Secure checkout by Stripe. Use the email you sign in to Wealspring with, or the one you’d like to.</p>
           <script type="application/json" id="plans" set:html={JSON.stringify({ products: plans, first })} />
         </div>
       ) : (
@@ -98,8 +95,8 @@ const benefits = [
     const per = document.getElementById('per')!;
     const hint = document.getElementById('hint')!;
     const HINTS: Record<string, string> = {
-      wealspring: 'Use the email you sign in to Wealspring with, or the one you’d like to.',
-      bundle: 'Use the email you sign in to Whisp and Wealspring with. Premium goes to the account with this email in each app.',
+      wealspring: 'Secure checkout by Stripe. Use the email you sign in to Wealspring with, or the one you’d like to.',
+      bundle: 'Secure checkout by Stripe. Use the email you sign in to Whisp and Wealspring with: premium goes to the account with that email in each app.',
     };
     const render = () => {
       price.textContent = products[product][plan].amount;
@@ -121,20 +118,18 @@ const benefits = [
     });
 
     const form = document.getElementById('checkout-form') as HTMLFormElement;
-    const email = document.getElementById('email') as HTMLInputElement;
     const error = document.getElementById('error')!;
     const submit = document.getElementById('submit') as HTMLButtonElement;
     form.addEventListener('submit', async (ev) => {
       ev.preventDefault();
       error.textContent = '';
-      if (!email.value.includes('@')) { error.textContent = 'Please enter your email.'; return; }
       submit.disabled = true;
       submit.textContent = 'Opening checkout…';
       try {
         const res = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'founders', product, plan, email: email.value.trim() }),
+          body: JSON.stringify({ kind: 'founders', product, plan }),
         });
         const data = await res.json();
         if (data.url) { location.href = data.url; return; }
@@ -196,14 +191,7 @@ const benefits = [
   .price { font-family: var(--font-heading); font-size: 3rem; color: var(--cream); line-height: 1; }
   .per { color: var(--cream-dim); }
   form { display: flex; flex-direction: column; gap: 8px; }
-  label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255, 255, 255, 0.45); }
-  input {
-    font: inherit; font-size: 1rem; font-weight: 400; color: #fff;
-    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 12px; padding: 14px 16px;
-  }
-  input:focus { outline: none; border-color: rgba(206, 166, 54, 0.6); }
-  .hint, .fine { font-size: 0.82rem; color: rgba(200, 196, 184, 0.6); }
+  .fine { font-size: 0.82rem; color: rgba(200, 196, 184, 0.6); }
   .error { min-height: 1.2em; font-size: 0.85rem; color: rgba(230, 120, 110, 0.95); }
   .btn { justify-content: center; }
   .btn:disabled { opacity: 0.6; cursor: default; transform: none; }

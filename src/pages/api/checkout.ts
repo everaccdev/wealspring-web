@@ -14,6 +14,13 @@ import { stripe, priceByLookupKey } from '../../lib/stripe';
 import { APP, BUNDLE_APPS, FOUNDERS_PRODUCTS, expansionById, type FoundersPlan, type FoundersProduct } from '../../lib/catalog';
 import { getFounderCount } from '../../lib/founderCount';
 
+// Shown beside Stripe's email field, since the purchase goes to the account
+// with the checkout email.
+const EMAIL_NOTE = {
+  wealspring: 'Use the email you sign in to Wealspring with. New to Wealspring? We’ll set up your account and email you a link to choose a password.',
+  bundle: 'Use the email you sign in to Whisp and Wealspring with. Premium goes to the account with this email in each app; if you’re new to either, we’ll set one up.',
+};
+
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -50,6 +57,7 @@ export const POST: APIRoute = async ({ request, site }) => {
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${base}/founders/success?session_id={CHECKOUT_SESSION_ID}${product === 'bundle' ? '&bundle=1' : ''}`,
         cancel_url: `${base}/founders`,
+        custom_text: { submit: { message: EMAIL_NOTE[product === 'bundle' ? 'bundle' : 'wealspring'] } },
         metadata: meta,
         subscription_data: { metadata: meta },
       });
@@ -68,6 +76,7 @@ export const POST: APIRoute = async ({ request, site }) => {
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: `${base}/decks/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${base}/decks`,
+        custom_text: { submit: { message: EMAIL_NOTE.wealspring } },
         metadata: { app: APP, apps: APP, kind: 'deck', deckId: deck.id, ...(uid && { uid }) },
       });
       return json(200, { url: session.url });
