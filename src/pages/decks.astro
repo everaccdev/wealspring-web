@@ -1,0 +1,138 @@
+---
+// Decks: the six launch decks (free for everyone) and the expansions for sale
+// (lib/catalog EXPANSIONS). Prices come from Stripe; a deck whose price can't
+// be read is shown without a Buy button rather than with a wrong price.
+export const prerender = false;
+import Base from '../layouts/Base.astro';
+import { FREE_DECKS, EXPANSIONS } from '../lib/catalog';
+import { priceLabel } from '../lib/stripe';
+
+const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: await priceLabel(e.priceId) })));
+---
+
+<Base title="Decks — Wealspring" description="Every Wealspring deck: six free traditions, and expansions to add.">
+  <section class="decks">
+    <div class="container">
+      <span class="section-label">Decks</span>
+      <h1>Every <em>tradition</em>.</h1>
+      <p class="lead">Six decks come free with Wealspring. Expansions add more traditions to draw from.</p>
+
+      <h2 class="group">Free for everyone</h2>
+      <div class="grid">
+        {FREE_DECKS.map((d) => (
+          <article class="deck">
+            <img src={d.cover} alt="" loading="lazy" width="240" height="398" />
+            <h3>{d.name}</h3>
+            <p>{d.subtitle} · {d.cards} cards</p>
+            <span class="tag">Included</span>
+          </article>
+        ))}
+      </div>
+
+      <h2 class="group">Expansions</h2>
+      {forSale.length === 0 ? (
+        <p class="dim">The first expansions, Runes and the I Ching among them, are on their way.</p>
+      ) : (
+        <div class="grid">
+          {forSale.map((d) => (
+            <article class="deck">
+              <img src={d.cover} alt="" loading="lazy" width="240" height="398" />
+              <h3>{d.name}</h3>
+              <p>{d.subtitle} · {d.cards} cards</p>
+              {d.includedWithFounders && <span class="tag">Included for founders</span>}
+              {d.price && (
+                <button type="button" class="btn btn-outline buy" data-deck={d.id} data-name={d.name}>
+                  Buy · {d.price.amount}
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+
+  <dialog id="buy-dialog">
+    <form id="buy-form" method="dialog" novalidate>
+      <h2 id="buy-title">Buy</h2>
+      <label for="buy-email">Your Wealspring email</label>
+      <input id="buy-email" type="email" autocomplete="email" placeholder="your@email.com" required />
+      <p class="hint">The deck is added to the account with this email. New here? We’ll set one up.</p>
+      <p class="error" id="buy-error" role="alert"></p>
+      <div class="actions">
+        <button type="button" class="btn btn-outline" id="buy-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="buy-submit">Continue to checkout</button>
+      </div>
+    </form>
+  </dialog>
+</Base>
+
+<script>
+  const dialog = document.getElementById('buy-dialog') as HTMLDialogElement;
+  const form = document.getElementById('buy-form') as HTMLFormElement;
+  const email = document.getElementById('buy-email') as HTMLInputElement;
+  const error = document.getElementById('buy-error')!;
+  const submit = document.getElementById('buy-submit') as HTMLButtonElement;
+  let deckId = '';
+
+  document.querySelectorAll<HTMLButtonElement>('.buy').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      deckId = btn.dataset.deck!;
+      document.getElementById('buy-title')!.textContent = `Buy ${btn.dataset.name}`;
+      error.textContent = '';
+      dialog.showModal();
+      email.focus();
+    });
+  });
+  document.getElementById('buy-cancel')!.addEventListener('click', () => dialog.close());
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    error.textContent = '';
+    if (!email.value.includes('@')) { error.textContent = 'Please enter your email.'; return; }
+    submit.disabled = true;
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'deck', deckId, email: email.value.trim() }),
+      });
+      const data = await res.json();
+      if (data.url) { location.href = data.url; return; }
+      error.textContent = data.message || 'Checkout couldn’t start. Please try again.';
+    } catch {
+      error.textContent = 'Network error. Check your connection and try again.';
+    }
+    submit.disabled = false;
+  });
+</script>
+
+<style>
+  .decks { padding: 160px 0 40px; }
+  .decks h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 300; margin: 16px 0 12px; }
+  .decks h1 em { font-style: italic; color: var(--gold-light); }
+  .group { font-size: 1.6rem; color: var(--cream); margin: 56px 0 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 32px 24px; }
+  .deck { display: flex; flex-direction: column; gap: 6px; }
+  .deck img { width: 100%; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234, 193, 124, 0.35); margin-bottom: 8px; }
+  .deck h3 { font-size: 1.25rem; color: var(--cream); }
+  .deck p { font-size: 0.85rem; color: var(--cream-dim); line-height: 1.5; }
+  .tag { align-self: flex-start; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
+  .buy { margin-top: 8px; justify-content: center; padding: 10px 16px; }
+  dialog {
+    margin: auto; width: min(440px, calc(100% - 32px)); padding: 28px; border-radius: 16px;
+    border: 1px solid rgba(206, 166, 54, 0.3); background: #070a18; color: var(--cream);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+  dialog form { display: flex; flex-direction: column; gap: 10px; }
+  dialog h2 { font-size: 1.6rem; margin-bottom: 6px; }
+  label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255, 255, 255, 0.45); }
+  input {
+    font: inherit; font-size: 1rem; font-weight: 400; color: #fff;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  .hint { font-size: 0.82rem; color: rgba(200, 196, 184, 0.6); }
+  .error { min-height: 1.2em; font-size: 0.85rem; color: rgba(230, 120, 110, 0.95); }
+  .actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
+</style>

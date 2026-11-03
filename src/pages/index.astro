@@ -1,0 +1,92 @@
+---
+export const prerender = true;
+import Base from '../layouts/Base.astro';
+
+// The same three ideas as the app's onboarding, in the same words.
+const beats = [
+  {
+    label: 'For what’s on your mind',
+    title: 'See your question in a new light.',
+    body: 'Draw a card from centuries of wisdom: the saints, tarot, the stars, the archetypes. Any question. Or none at all.',
+  },
+  {
+    label: 'Written for you',
+    title: 'A reading that knows your question.',
+    body: 'Not a page from a book. A reading for what you asked, and you can answer back.',
+  },
+  {
+    label: 'Your journal',
+    title: 'See what keeps coming back.',
+    body: 'Every question is kept, so you can see what you’ve been carrying, and how it changes.',
+  },
+];
+---
+
+<Base>
+  <section class="hero">
+    <div class="container hero-inner fade-up">
+      <span class="section-label">Wealspring</span>
+      <h1>Bring a question.<br /><em>Draw a card.</em></h1>
+      <p class="hero-lead">A quiet place to sit with what you’re carrying, through the cards of every tradition.</p>
+      <p class="hero-soon">Coming soon to iPhone.</p>
+    </div>
+  </section>
+
+  <section class="beats" id="how-it-works">
+    <div class="container">
+      <div class="divider"><span class="divider-glyph">✦</span></div>
+      <div class="beat-grid">
+        {beats.map((b) => (
+          <article class="beat">
+            <span class="section-label">{b.label}</span>
+            <h2>{b.title}</h2>
+            <p>{b.body}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    min-height: 82vh;
+    display: flex;
+    align-items: center;
+    padding: 160px 0 80px;
+    text-align: center;
+  }
+  .hero-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .hero h1 {
+    font-size: clamp(2.6rem, 7vw, 5rem);
+    font-weight: 300;
+    color: var(--cream);
+  }
+  .hero h1 em { font-style: italic; color: var(--gold-light); }
+  .hero-lead {
+    font-family: var(--font-heading);
+    font-size: clamp(1.15rem, 2.4vw, 1.4rem);
+    font-style: italic;
+    color: var(--cream-dim);
+    max-width: 560px;
+  }
+  .hero-soon {
+    font-size: 0.8rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .beats { padding-bottom: 40px; }
+  .beat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 40px;
+    margin-top: 48px;
+  }
+  .beat { display: flex; flex-direction: column; gap: 12px; }
+  .beat h2 { font-size: 1.7rem; font-weight: 400; color: var(--cream); }
+  .beat p { color: var(--cream-dim); }
+  @media (max-width: 860px) {
+    .beat-grid { grid-template-columns: 1fr; gap: 48px; }
+  }
+</style>

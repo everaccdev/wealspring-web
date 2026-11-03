@@ -1,0 +1,256 @@
+---
+// Every Wealspring account email link lands here (Firebase › Authentication ›
+// Templates › Customize action URL → https://<site>/auth/action). Firebase
+// adds ?mode=…&oobCode=…; the page handles each mode:
+//   resetPassword — choose a new password (verifyPasswordResetCode, then
+//                   confirmPasswordReset)
+//   verifyEmail / verifyAndChangeEmail — confirm the address (applyActionCode)
+//   recoverEmail  — undo an email change (checkActionCode, applyActionCode)
+// The one-time code is read once and removed from the address bar, so it
+// doesn't sit in history or show in a screenshot.
+export const prerender = true;
+import MinimalLayout from '../../layouts/MinimalLayout.astro';
+---
+
+<MinimalLayout title="Your account — Wealspring">
+  <div class="action">
+    <a href="/" class="action-logo"><img src="/logo.svg" alt="Wealspring" width="180" height="60" /></a>
+
+    <section class="panel" data-state="loading" aria-live="polite">
+      <p class="quiet">One moment…</p>
+    </section>
+
+    <section class="panel" data-state="reset" hidden>
+      <span class="section-label">Reset password</span>
+      <h1>Choose a new <em>password</em></h1>
+      <p class="quiet">For <strong id="reset-email"></strong></p>
+      <form id="reset-form" novalidate>
+        <label for="new-password">New password</label>
+        <div class="field">
+          <input id="new-password" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters" />
+          <button type="button" class="show" aria-controls="new-password" aria-pressed="false">Show</button>
+        </div>
+        <label for="confirm-password">Confirm new password</label>
+        <div class="field">
+          <input id="confirm-password" type="password" autocomplete="new-password" minlength="6" required />
+        </div>
+        <p class="error" id="reset-error" role="alert"></p>
+        <button type="submit" class="cta" id="reset-submit">Save new password</button>
+      </form>
+    </section>
+
+    <section class="panel" data-state="reset-done" hidden>
+      <span class="section-label">✦ Done</span>
+      <h1>Your password has been <em>changed</em></h1>
+      <p class="quiet">Open Wealspring and sign in with your new password.</p>
+      <a href="wealspring://" class="cta">Open Wealspring</a>
+    </section>
+
+    <section class="panel" data-state="verified" hidden>
+      <span class="section-label">✦ Confirmed</span>
+      <h1>Your email is <em>confirmed</em></h1>
+      <p class="quiet">You can close this page and return to Wealspring.</p>
+      <a href="wealspring://" class="cta">Open Wealspring</a>
+    </section>
+
+    <section class="panel" data-state="recovered" hidden>
+      <span class="section-label">✦ Restored</span>
+      <h1>Your sign-in email is <em>back</em></h1>
+      <p class="quiet">Your account uses <strong id="recovered-email"></strong> again. If you didn’t change it yourself, reset your password too.</p>
+      <button type="button" class="cta" id="recover-reset">Send me a reset link</button>
+      <p class="quiet small" id="recover-reset-note" hidden>A link is on its way to that address.</p>
+    </section>
+
+    <section class="panel" data-state="error" hidden>
+      <span class="section-label">Link</span>
+      <h1>This link has <em>faded</em></h1>
+      <p class="quiet" id="error-text">It may have expired, or already been used.</p>
+      <p class="quiet small">In Wealspring, tap <strong>Forgot password?</strong> on the sign-in screen for a new one.</p>
+    </section>
+  </div>
+</MinimalLayout>
+
+<script>
+  import {
+    verifyPasswordResetCode, confirmPasswordReset,
+    applyActionCode, checkActionCode, sendPasswordResetEmail,
+  } from 'firebase/auth';
+  import { auth } from '../../lib/firebase';
+
+  const params = new URLSearchParams(location.search);
+  const mode = params.get('mode');
+  const code = params.get('oobCode');
+  history.replaceState(null, '', location.pathname);
+
+  const show = (state: string) => {
+    document.querySelectorAll<HTMLElement>('.panel').forEach((p) => { p.hidden = p.dataset.state !== state; });
+  };
+  const fail = (message?: string) => {
+    if (message) document.getElementById('error-text')!.textContent = message;
+    show('error');
+  };
+  const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+  // Firebase error codes → plain words.
+  const friendly = (e: any) => ({
+    'auth/expired-action-code': 'This link has expired. Links last an hour.',
+    'auth/invalid-action-code': 'This link has already been used, or isn’t complete.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/user-not-found': 'We couldn’t find this account.',
+    'auth/weak-password': 'Please choose a password of at least 6 characters.',
+    'auth/network-request-failed': 'Network error. Check your connection and try again.',
+  } as Record<string, string>)[e?.code] || 'Something went wrong. Please try again.';
+
+  async function resetPassword() {
+    const email = await verifyPasswordResetCode(auth!, code!);
+    $('reset-email').textContent = email;
+    show('reset');
+
+    const pw = $<HTMLInputElement>('new-password');
+    const confirm = $<HTMLInputElement>('confirm-password');
+    const error = $('reset-error');
+    const submit = $<HTMLButtonElement>('reset-submit');
+    const toggle = document.querySelector<HTMLButtonElement>('.show')!;
+
+    toggle.addEventListener('click', () => {
+      const showing = pw.type === 'text';
+      pw.type = confirm.type = showing ? 'password' : 'text';
+      toggle.textContent = showing ? 'Show' : 'Hide';
+      toggle.setAttribute('aria-pressed', String(!showing));
+    });
+    pw.focus();
+
+    $('reset-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      error.textContent = '';
+      if (pw.value.length < 6) { error.textContent = 'Please choose a password of at least 6 characters.'; return; }
+      if (pw.value !== confirm.value) { error.textContent = 'Passwords do not match.'; return; }
+      submit.disabled = true;
+      submit.textContent = 'Saving…';
+      try {
+        await confirmPasswordReset(auth!, code!, pw.value);
+        show('reset-done');
+      } catch (e: any) {
+        if (e?.code === 'auth/expired-action-code' || e?.code === 'auth/invalid-action-code') { fail(friendly(e)); return; }
+        error.textContent = friendly(e);
+        submit.disabled = false;
+        submit.textContent = 'Save new password';
+      }
+    });
+  }
+
+  async function recoverEmail() {
+    const info = await checkActionCode(auth!, code!);
+    const email = info.data.email!;
+    await applyActionCode(auth!, code!);
+    $('recovered-email').textContent = email;
+    show('recovered');
+    $('recover-reset').addEventListener('click', async (ev) => {
+      (ev.currentTarget as HTMLButtonElement).disabled = true;
+      await sendPasswordResetEmail(auth!, email).catch(() => {});
+      $('recover-reset-note').hidden = false;
+    }, { once: true });
+  }
+
+  (async () => {
+    if (!auth) { fail('This page isn’t set up yet.'); return; }
+    if (!mode || !code) { fail('This link isn’t complete. Try opening it from the email again.'); return; }
+    try {
+      if (mode === 'resetPassword') await resetPassword();
+      else if (mode === 'verifyEmail' || mode === 'verifyAndChangeEmail') { await applyActionCode(auth, code); show('verified'); }
+      else if (mode === 'recoverEmail') await recoverEmail();
+      else fail('This link isn’t one we recognise.');
+    } catch (e) {
+      fail(friendly(e));
+    }
+  })();
+</script>
+
+<style>
+  .action {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    padding: 48px 16px;
+  }
+  .action-logo img { display: block; height: 56px; width: auto; }
+  .panel {
+    width: 100%;
+    max-width: 420px;
+    padding: 36px 28px;
+    border-radius: 16px;
+    border: 1px solid rgba(206, 166, 54, 0.25);
+    background: rgba(6, 7, 20, 0.85);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .panel[hidden] { display: none; }
+  .panel h1 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.8rem, 6vw, 2.3rem);
+    font-weight: 300;
+    color: var(--cream);
+  }
+  .panel h1 em { font-style: italic; color: var(--gold-light); }
+  .quiet { color: var(--cream-dim); font-size: 0.95rem; }
+  .quiet strong { color: var(--cream); font-weight: 500; word-break: break-all; }
+  .small { font-size: 0.85rem; opacity: 0.8; }
+  form { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  label {
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: 6px;
+  }
+  .field { position: relative; }
+  input {
+    width: 100%;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 400;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    padding: 14px 64px 14px 16px;
+  }
+  input:focus { outline: none; border-color: rgba(206, 166, 54, 0.6); }
+  .show {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--gold-light);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 8px;
+  }
+  .error { min-height: 1.2em; font-size: 0.85rem; color: rgba(230, 120, 110, 0.95); }
+  .cta {
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 54px;
+    border: none;
+    border-radius: 27px;
+    background: linear-gradient(#e8b85a, #c9963a);
+    color: #1a1408;
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(201, 150, 58, 0.25);
+  }
+  .cta:disabled { opacity: 0.6; cursor: default; }
+</style>

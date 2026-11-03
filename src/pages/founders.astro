@@ -1,0 +1,210 @@
+---
+// Founders: a subscription at the founders price, capped at FOUNDER_CAP, as
+// Whisp's /founders — Wealspring alone, or Wealspring + Whisp (premium in
+// both apps). Prices come from Stripe (lib/stripe priceLabel). A product
+// shows only when both its Prices can be read; with neither, the page says
+// founders pricing opens soon instead of showing a checkout.
+export const prerender = false;
+import Base from '../layouts/Base.astro';
+import { FOUNDERS_PRODUCTS, FOUNDER_CAP, type FoundersProduct } from '../lib/catalog';
+import { priceLabel } from '../lib/stripe';
+
+const entries = await Promise.all((Object.keys(FOUNDERS_PRODUCTS) as FoundersProduct[]).map(async (key) => {
+  const p = FOUNDERS_PRODUCTS[key];
+  const [annual, monthly] = await Promise.all([priceLabel(p.annual), priceLabel(p.monthly)]);
+  return annual && monthly ? [key, { name: p.name, annual, monthly }] as const : null;
+}));
+const products = Object.fromEntries(entries.filter((e) => e !== null));
+const first = (Object.keys(products)[0] ?? null) as FoundersProduct | null;
+const plans = first ? products : null;
+const hasBundle = 'bundle' in products && 'wealspring' in products;
+
+const benefits = [
+  { title: 'As many readings as you need', body: 'Bring every question you’re carrying, within fair use. Free readers get the same quality, a few each day.' },
+  { title: 'Every launch expansion, included', body: 'The expansions available when Wealspring launches are yours, with nothing more to pay.' },
+  { title: 'Your founders price, kept', body: 'The price you join at stays yours for as long as you stay subscribed.' },
+  { title: 'The same cards as everyone', body: 'Rare editions can’t be bought. They come to founders and free readers in just the same way.' },
+];
+---
+
+<Base
+  title="Become a Founder — Wealspring"
+  description={`Join Wealspring at the founders price, for the first ${FOUNDER_CAP} members.`}
+>
+  <section class="founders">
+    <div class="container narrow">
+      <span class="section-label">Founders</span>
+      <h1>Become a <em>founder</em>.</h1>
+      <p class="lead">For the first {FOUNDER_CAP} members: Wealspring at its founders price, kept for as long as you stay.</p>
+      <p class="spots" id="spots" hidden></p>
+
+      <ul class="benefits">
+        {benefits.map((b) => (
+          <li>
+            <span class="glyph" aria-hidden="true">✦</span>
+            <div><h2>{b.title}</h2><p>{b.body}</p></div>
+          </li>
+        ))}
+      </ul>
+
+      {plans && first ? (
+        <div class="checkout glow-gold">
+          {hasBundle && (
+            <div class="products" role="radiogroup" aria-label="Founders plan">
+              <button type="button" class="product active" data-product="wealspring" role="radio" aria-checked="true">
+                <span class="product-name">Wealspring</span>
+                <span class="product-sub">Premium in Wealspring</span>
+              </button>
+              <button type="button" class="product" data-product="bundle" role="radio" aria-checked="false">
+                <span class="product-name">Wealspring + Whisp</span>
+                <span class="product-sub">Premium in both apps</span>
+              </button>
+            </div>
+          )}
+          <div class="plan-toggle" role="radiogroup" aria-label="Billing">
+            <button type="button" class="plan-btn active" data-plan="annual" role="radio" aria-checked="true">Annual</button>
+            <button type="button" class="plan-btn" data-plan="monthly" role="radio" aria-checked="false">Monthly</button>
+          </div>
+          <div class="price-row">
+            <span class="price" id="price">{plans[first]!.annual.amount}</span>
+            <span class="per" id="per">{plans[first]!.annual.per} · cancel anytime</span>
+          </div>
+          <form id="checkout-form" novalidate>
+            <label for="email">Your email</label>
+            <input id="email" type="email" autocomplete="email" placeholder="your@email.com" required />
+            <p class="hint" id="hint">Use the email you sign in to Wealspring with, or the one you’d like to.</p>
+            <p class="error" id="error" role="alert"></p>
+            <button type="submit" class="btn btn-primary" id="submit">Become a founder</button>
+          </form>
+          <p class="fine">Secure checkout by Stripe.</p>
+          <script type="application/json" id="plans" set:html={JSON.stringify({ products: plans, first })} />
+        </div>
+      ) : (
+        <div class="checkout">
+          <p class="lead">Founders pricing opens soon.</p>
+        </div>
+      )}
+    </div>
+  </section>
+</Base>
+
+<script>
+  const plansEl = document.getElementById('plans');
+  if (plansEl) {
+    const { products, first } = JSON.parse(plansEl.textContent || '{}');
+    let product = first;
+    let plan = 'annual';
+    const price = document.getElementById('price')!;
+    const per = document.getElementById('per')!;
+    const hint = document.getElementById('hint')!;
+    const HINTS: Record<string, string> = {
+      wealspring: 'Use the email you sign in to Wealspring with, or the one you’d like to.',
+      bundle: 'Use the email you sign in to Whisp and Wealspring with. Premium goes to the account with this email in each app.',
+    };
+    const render = () => {
+      price.textContent = products[product][plan].amount;
+      per.textContent = `${products[product][plan].per} · cancel anytime`;
+      hint.textContent = HINTS[product];
+    };
+    const choose = (selector: string, btn: HTMLButtonElement) => {
+      document.querySelectorAll<HTMLButtonElement>(selector).forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-checked', String(on));
+      });
+    };
+    document.querySelectorAll<HTMLButtonElement>('.plan-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { plan = btn.dataset.plan!; choose('.plan-btn', btn); render(); });
+    });
+    document.querySelectorAll<HTMLButtonElement>('.product').forEach((btn) => {
+      btn.addEventListener('click', () => { product = btn.dataset.product!; choose('.product', btn); render(); });
+    });
+
+    const form = document.getElementById('checkout-form') as HTMLFormElement;
+    const email = document.getElementById('email') as HTMLInputElement;
+    const error = document.getElementById('error')!;
+    const submit = document.getElementById('submit') as HTMLButtonElement;
+    form.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      error.textContent = '';
+      if (!email.value.includes('@')) { error.textContent = 'Please enter your email.'; return; }
+      submit.disabled = true;
+      submit.textContent = 'Opening checkout…';
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'founders', product, plan, email: email.value.trim() }),
+        });
+        const data = await res.json();
+        if (data.url) { location.href = data.url; return; }
+        error.textContent = data.message || 'Checkout couldn’t start. Please try again.';
+      } catch {
+        error.textContent = 'Network error. Check your connection and try again.';
+      }
+      submit.disabled = false;
+      submit.textContent = 'Become a founder';
+    });
+  }
+
+  // Places left, only once the number is worth showing.
+  fetch('/api/founder-count').then((r) => r.json()).then((d) => {
+    const el = document.getElementById('spots')!;
+    if (!d.available) return;
+    el.textContent = d.capReached ? 'Every founders place has been taken.'
+      : d.reveal ? `${d.remaining} of ${d.count + d.remaining} founders places left` : 'Founders places are open';
+    el.hidden = false;
+  }).catch(() => {});
+</script>
+
+<style>
+  .founders { padding: 160px 0 40px; }
+  .narrow { max-width: 760px; }
+  .founders h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 300; margin: 16px 0 12px; }
+  .founders h1 em { font-style: italic; color: var(--gold-light); }
+  .spots { color: var(--gold); font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; }
+  .benefits { list-style: none; display: grid; gap: 24px; margin: 40px 0 48px; }
+  .benefits li { display: flex; gap: 16px; }
+  .glyph { color: var(--gold); padding-top: 4px; }
+  .benefits h2 { font-size: 1.35rem; color: var(--cream); margin-bottom: 4px; }
+  .benefits p { color: var(--cream-dim); }
+  .checkout {
+    border: 1px solid rgba(206, 166, 54, 0.3);
+    border-radius: 16px;
+    background: rgba(6, 7, 20, 0.85);
+    padding: 32px clamp(20px, 5vw, 40px);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .products { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .product {
+    display: flex; flex-direction: column; gap: 2px; text-align: left; cursor: pointer; font: inherit;
+    background: rgba(255, 255, 255, 0.03); border: 1px solid var(--navy-border); border-radius: 12px; padding: 14px 16px;
+  }
+  .product.active { border-color: rgba(206, 166, 54, 0.6); background: rgba(206, 166, 54, 0.08); }
+  .product-name { font-family: var(--font-heading); font-size: 1.2rem; color: var(--cream); }
+  .product-sub { font-size: 0.8rem; color: var(--cream-dim); }
+  @media (max-width: 480px) { .products { grid-template-columns: 1fr; } }
+  .plan-toggle { display: inline-flex; align-self: flex-start; border: 1px solid var(--navy-border); border-radius: 999px; padding: 4px; }
+  .plan-btn {
+    background: none; border: none; cursor: pointer; font: inherit; font-size: 0.85rem; font-weight: 500;
+    color: var(--cream-dim); padding: 8px 18px; border-radius: 999px;
+  }
+  .plan-btn.active { background: rgba(206, 166, 54, 0.15); color: var(--gold-light); }
+  .price-row { display: flex; align-items: baseline; gap: 10px; }
+  .price { font-family: var(--font-heading); font-size: 3rem; color: var(--cream); line-height: 1; }
+  .per { color: var(--cream-dim); }
+  form { display: flex; flex-direction: column; gap: 8px; }
+  label { font-size: 0.62rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255, 255, 255, 0.45); }
+  input {
+    font: inherit; font-size: 1rem; font-weight: 400; color: #fff;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px; padding: 14px 16px;
+  }
+  input:focus { outline: none; border-color: rgba(206, 166, 54, 0.6); }
+  .hint, .fine { font-size: 0.82rem; color: rgba(200, 196, 184, 0.6); }
+  .error { min-height: 1.2em; font-size: 0.85rem; color: rgba(230, 120, 110, 0.95); }
+  .btn { justify-content: center; }
+  .btn:disabled { opacity: 0.6; cursor: default; transform: none; }
+</style>

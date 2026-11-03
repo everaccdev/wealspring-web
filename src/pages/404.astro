@@ -1,0 +1,41 @@
+---
+export const prerender = true;
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="Page not found — Wealspring"
+  description="This page doesn't exist."
+>
+  <div class="not-found">
+    <div class="container">
+      <span class="section-label">404</span>
+      <h1>This page went quiet</h1>
+      <p class="lead">We couldn't find what you were looking for. It may have moved, or never existed.</p>
+      <a href="/" class="btn btn-primary">Back to home</a>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .not-found {
+    padding: 200px 0 160px;
+    text-align: center;
+  }
+  .not-found .section-label { display: block; margin-bottom: 16px; }
+  .not-found h1 {
+    font-family: var(--font-heading);
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 300;
+    color: var(--cream);
+    margin-bottom: 16px;
+  }
+  .not-found .lead {
+    font-family: var(--font-heading);
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--cream-dim);
+    max-width: 480px;
+    margin: 0 auto 32px;
+  }
+</style>
