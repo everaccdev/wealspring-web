@@ -1,6 +1,8 @@
 // What Wealspring sells on the web, and the decks that are free for everyone.
-// Prices are NOT written here: each item names a Stripe Price, and pages read
-// the amount from Stripe, so changing a price happens only in Stripe.
+// Prices are NOT written here: each item names a Stripe Price by its lookup
+// key (the same key in the sandbox and live), and pages read the Price from
+// Stripe, so changing a price happens only in Stripe: create the new Price
+// and move the lookup key onto it.
 //
 // Stripe is shared with Whisp (the Eyes Wide Wellness account), so every
 // Checkout session says which apps it's for in metadata.apps: 'wealspring',
@@ -16,21 +18,20 @@ export const FOUNDER_CAP = 500;
 export const FOUNDERS_PRODUCTS = {
   wealspring: {
     name: 'Wealspring',
-    monthly: import.meta.env.STRIPE_FOUNDERS_MONTHLY_PRICE,
-    annual: import.meta.env.STRIPE_FOUNDERS_ANNUAL_PRICE,
+    monthly: 'wealspring_founders_monthly',
+    annual: 'wealspring_founders_annual',
   },
   bundle: {
     name: 'Wealspring + Whisp',
-    monthly: import.meta.env.STRIPE_BUNDLE_MONTHLY_PRICE,
-    annual: import.meta.env.STRIPE_BUNDLE_ANNUAL_PRICE,
+    monthly: 'bundle_founders_monthly',
+    annual: 'bundle_founders_annual',
   },
 } as const;
 export type FoundersProduct = keyof typeof FOUNDERS_PRODUCTS;
 export type FoundersPlan = 'monthly' | 'annual';
 
-export const FOUNDERS_PRICE_IDS = Object.values(FOUNDERS_PRODUCTS)
-  .flatMap((p) => [p.monthly, p.annual])
-  .filter(Boolean) as string[];
+export const FOUNDERS_LOOKUP_KEYS: string[] = Object.values(FOUNDERS_PRODUCTS)
+  .flatMap((p) => [p.monthly, p.annual]);
 
 // Public card art in Wealspring's Storage bucket (world-readable).
 const art = (path: string) =>
@@ -55,7 +56,7 @@ export const FREE_DECKS = [
 // Empty until the first expansion ships; /decks then shows it with a Buy
 // button. Shape:
 //   { id: 'runes', name: 'Elder Futhark Runes', subtitle: '…', cards: 24,
-//     cover: art('public/decks/runes/…'), priceId: 'price_…',
+//     cover: art('public/decks/runes/…'), lookupKey: 'deck_runes',
 //     includedWithFounders: true }
 export interface Expansion {
   id: string;
@@ -63,7 +64,7 @@ export interface Expansion {
   subtitle: string;
   cards: number;
   cover: string;
-  priceId: string;
+  lookupKey: string;
   includedWithFounders: boolean;
 }
 export const EXPANSIONS: Expansion[] = [];
