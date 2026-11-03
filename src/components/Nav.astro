@@ -1,0 +1,159 @@
+---
+// Whisp's nav: the logo, a few links, a hamburger on phones, and a dark band
+// once the page scrolls. Links are added as their pages exist.
+const navLinks = [
+  { href: '/#how-it-works', label: 'How It Works' },
+  { href: '/decks', label: 'Decks' },
+  { href: '/founders', label: 'Founders' },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<nav class="nav" id="nav">
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo">
+      <img src="/logo.svg" alt="Wealspring" class="logo-mark" width="150" height="50" />
+    </a>
+
+    <ul class="nav-links" id="nav-links">
+      {navLinks.map(link => (
+        <li>
+          <a href={link.href} class={`nav-link ${currentPath === link.href ? 'active' : ''}`}>
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<script>
+  const nav = document.getElementById('nav');
+  const toggle = document.getElementById('nav-toggle');
+  const links = document.getElementById('nav-links');
+
+  // Scroll effect
+  window.addEventListener('scroll', () => {
+    nav?.classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  // Mobile toggle
+  toggle?.addEventListener('click', () => {
+    links?.classList.toggle('open');
+    toggle.classList.toggle('open');
+  });
+
+  // Close on link click
+  links?.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      links.classList.remove('open');
+      toggle?.classList.remove('open');
+    });
+  });
+</script>
+
+<style>
+  .nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 20px 0;
+    transition: all 0.3s ease;
+  }
+  .nav.scrolled {
+    padding: 12px 0;
+    background: rgba(10, 16, 32, 0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(30, 45, 80, 0.6);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+  }
+  .nav-logo {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+  }
+  .logo-mark {
+    display: block;
+    height: 46px;
+    width: auto;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+  }
+  .nav-logo:hover .logo-mark { opacity: 1; }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    list-style: none;
+    margin-left: auto;
+  }
+  .nav-link {
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cream-dim);
+    transition: color 0.2s;
+  }
+  .nav-link:hover, .nav-link.active {
+    color: var(--cream);
+  }
+
+  /* Hamburger */
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: auto;
+  }
+  .nav-toggle span {
+    display: block;
+    width: 22px;
+    height: 1.5px;
+    background: var(--cream);
+    transition: all 0.3s ease;
+  }
+  .nav-toggle.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  .nav-toggle.open span:nth-child(2) { opacity: 0; }
+  .nav-toggle.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  @media (max-width: 768px) {
+    .nav-toggle { display: flex; }
+    .nav-links {
+      position: fixed;
+      top: 64px;
+      left: 0; right: 0;
+      flex-direction: column;
+      gap: 0;
+      background: rgba(10, 16, 32, 0.97);
+      border-bottom: 1px solid var(--navy-border);
+      padding: 16px 0;
+      display: none;
+      margin: 0;
+    }
+    .nav-links.open { display: flex; }
+    .nav-links li { width: 100%; }
+    .nav-link {
+      display: block;
+      padding: 14px 32px;
+      font-size: 0.85rem;
+    }
+  }
+</style>

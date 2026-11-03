@@ -1,0 +1,20 @@
+{
+  "name": "wealspring-web",
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/netlify": "^5.5.0",
+    "astro": "^4.15.0",
+    "firebase": "^12.13.0",
+    "stripe": "^22.6.2"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^5.9.3"
+  }
+}

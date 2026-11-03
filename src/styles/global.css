@@ -1,0 +1,242 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Raleway:wght@300;400;500;600&display=swap');
+
+:root {
+  --navy: #0a1020;
+  --navy-mid: #0f1830;
+  --navy-light: #162040;
+  --navy-border: #1e2d50;
+  --cream: #faf8f3;
+  --cream-dim: #c8c4b8;
+  /* Wealspring's gold: the app's (#CEA636) and the logo's (#EAC17C). */
+  --gold: #cea636;
+  --gold-light: #eac17c;
+  --gold-dim: #8a6f30;
+  --white: #ffffff;
+
+  --font-display: 'Cinzel', serif;
+  --font-heading: 'Cormorant Garamond', serif;
+  --font-body: 'Raleway', sans-serif;
+
+  --max-width: 1200px;
+  --section-pad: clamp(80px, 10vw, 140px);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--navy);
+  /* The app's night sky: a violet halo high, a gold one low. */
+  background-image:
+    radial-gradient(ellipse 60% 40% at 75% 8%, rgba(127, 119, 221, 0.16), transparent 70%),
+    radial-gradient(ellipse 50% 35% at 15% 85%, rgba(201, 150, 58, 0.08), transparent 70%);
+  background-attachment: fixed;
+  color: var(--cream);
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.4;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 clamp(24px, 5vw, 64px);
+}
+
+.gold { color: var(--gold); }
+.dim { color: var(--cream-dim); }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 32px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--gold);
+  color: var(--navy);
+}
+.btn-primary:hover {
+  background: var(--gold-light);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(206, 166, 54, 0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--cream);
+  border: 1px solid var(--navy-border);
+}
+.btn-outline:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold-light);
+}
+
+/* Gold divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim));
+}
+.divider::after {
+  background: linear-gradient(90deg, var(--gold-dim), transparent);
+}
+.divider-glyph {
+  color: var(--gold);
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+/* Section label */
+.section-label {
+  font-family: var(--font-display);
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.8;
+}
+
+/* Fade-in animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  animation: fadeUp 0.8s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up { animation: none; opacity: 1; transform: none; }
+}
+
+/* Glow effects */
+.glow-gold {
+  box-shadow: 0 0 60px rgba(206, 166, 54, 0.12);
+}
+
+/* Selection */
+::selection {
+  background: rgba(206, 166, 54, 0.25);
+  color: var(--cream);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--navy); }
+::-webkit-scrollbar-thumb { background: var(--navy-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+/* Simple content pages (Delete account, account email links), as Whisp's
+   legal pages draw them. */
+.page-hero {
+  padding: 160px 0 64px;
+  border-bottom: 1px solid var(--navy-border);
+}
+.page-hero .section-label { display: block; margin-bottom: 16px; }
+.page-hero h1 {
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 300;
+  color: var(--cream);
+  margin-bottom: 12px;
+}
+.page-meta {
+  font-size: 0.8rem;
+  color: rgba(200, 196, 184, 0.35);
+  letter-spacing: 0.05em;
+}
+.legal-body { padding-top: 64px; padding-bottom: 120px; }
+.legal-content {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.lead {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  font-style: italic;
+  color: var(--cream);
+  margin-bottom: 16px;
+}
+.legal-content h2 {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--cream);
+  margin-top: 20px;
+}
+.legal-content p, .legal-content li {
+  font-size: 0.95rem;
+  color: var(--cream-dim);
+  line-height: 1.9;
+}
+.legal-content ol, .legal-content ul {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.legal-content strong { color: var(--cream); font-weight: 500; }
+.inline-link {
+  color: var(--gold-light);
+  border-bottom: 1px solid rgba(206, 166, 54, 0.3);
+}
+.inline-link:hover { border-color: var(--gold); }
