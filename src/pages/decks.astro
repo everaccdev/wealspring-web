@@ -15,7 +15,7 @@ const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: aw
     <div class="container">
       <span class="section-label">Decks</span>
       <h1>Every <em>tradition</em>.</h1>
-      <p class="lead">Six decks come free with Wealspring. Expansions add more traditions to draw from.</p>
+      <p class="lead">Six decks come free with Wealspring. More decks and expansions add traditions to draw from; an expansion joins the deck it belongs to.</p>
 
       <h2 class="group">Free for everyone</h2>
       <div class="grid">
@@ -29,26 +29,30 @@ const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: aw
         ))}
       </div>
 
-      <h2 class="group">Expansions</h2>
-      {forSale.length === 0 ? (
-        <p class="dim">The first expansions, Runes and the I Ching among them, are on their way.</p>
-      ) : (
-        <div class="grid">
-          {forSale.map((d) => (
-            <article class="deck">
-              <img src={d.cover} alt="" loading="lazy" width="240" height="398" />
-              <h3>{d.name}</h3>
-              <p>{d.subtitle} · {d.cards} cards</p>
-              {d.includedWithFounders && <span class="tag">Included for founders</span>}
-              {d.price && (
-                <button type="button" class="btn btn-outline buy" data-deck={d.id}>
-                  Buy · {d.price.amount}
-                </button>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
+      {[
+        { title: 'More decks', items: forSale.filter((d) => !d.parent) },
+        { title: 'Expansions', items: forSale.filter((d) => d.parent) },
+      ].filter((g) => g.items.length > 0).map((g) => (
+        <>
+          <h2 class="group">{g.title}</h2>
+          <div class="grid">
+            {g.items.map((d) => (
+              <article class="deck">
+                <img src={d.cover} alt="" loading="lazy" width="240" height="398" />
+                <h3>{d.name}</h3>
+                <p>{d.parent ? `For ${d.parent.name} · ` : ''}{d.subtitle} · {d.cards} cards</p>
+                {d.includedWithFounders && <span class="tag">Included for founders</span>}
+                {d.price && (
+                  <button type="button" class="btn btn-outline buy" data-deck={d.id}>
+                    Buy · {d.price.amount}
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        </>
+      ))}
+      {forSale.length === 0 && <p class="dim">The first expansions are on their way.</p>}
     </div>
   </section>
 
