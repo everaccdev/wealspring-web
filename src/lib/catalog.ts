@@ -50,14 +50,12 @@ export const FREE_DECKS = [
   { id: 'hindu-deities', name: 'Hindu Deities', subtitle: 'Faces of the divine', cards: 36, cover: art('public/decks/hindu-deities/ganesha_a_way_through.webp') },
 ];
 
-// Decks and expansions for sale. Each id must match the deck's id in the app
-// (src/data/decks), where the deck also sets includedWithFounders — founders
-// get the expansions that exist at launch; later ones are sold to everyone.
-// Empty until the first expansion ships; /decks then shows it with a Buy
-// button. Shape:
-//   { id: 'runes', name: 'Elder Futhark Runes', subtitle: '…', cards: 24,
-//     cover: art('public/decks/runes/…'), lookupKey: 'deck_runes',
-//     includedWithFounders: true }
+// Decks and expansions for sale. Each id must match the app's (src/data/decks:
+// a deck's id, or an expansion's id in its deck's expansions), since the
+// webhook adds it to the buyer's ownedDecks. An expansion names its deck in
+// parent, and needs that deck in the app. Founders get everything here
+// (includedWithFounders), as they all exist at launch; later releases are
+// sold to everyone.
 export interface Expansion {
   id: string;
   name: string;
@@ -66,7 +64,25 @@ export interface Expansion {
   cover: string;
   lookupKey: string;
   includedWithFounders: boolean;
+  parent?: { id: string; name: string };
 }
-export const EXPANSIONS: Expansion[] = [];
+const SAINTS = { id: 'saints', name: 'Catholic Saints' };
+const ANIMALS = { id: 'animal-symbolism', name: 'Animal Symbolism' };
+export const EXPANSIONS: Expansion[] = [
+  { id: 'dream-archetypes', name: 'Dream Archetypes', subtitle: 'The places and scenes of our dreams', cards: 38,
+    cover: art('public/decks/dream-archetypes/the_childhood_home.webp'), lookupKey: 'deck_dream_archetypes', includedWithFounders: true },
+  { id: 'animal-symbolism', name: 'Animal Symbolism', subtitle: 'What the animals have long stood for', cards: 40,
+    cover: art('public/decks/animal-symbolism/gray_wolf.webp'), lookupKey: 'deck_animal_symbolism', includedWithFounders: true },
+  { id: 'crystals-stones', name: 'Crystals & Stones', subtitle: 'The lore of stones', cards: 36,
+    cover: art('public/decks/crystals-stones/amethyst.webp'), lookupKey: 'deck_crystals_stones', includedWithFounders: true },
+  { id: 'hidden-light', name: 'Hidden Light', subtitle: 'Saint Martin of Tours, Saint Mechthild and Saint Pio', cards: 3, parent: SAINTS,
+    cover: art('public/decks/saints/saint_pio.webp'), lookupKey: 'expansion_hidden_light', includedWithFounders: true },
+  { id: 'desert-canyon', name: 'Desert & Canyon', subtitle: 'Creatures of the desert and the canyon', cards: 18, parent: ANIMALS,
+    cover: art('public/decks/animal-symbolism/greater_roadrunner.webp'), lookupKey: 'expansion_desert_canyon', includedWithFounders: true },
+  { id: 'woodlands-backyards', name: 'Woodlands & Backyards', subtitle: 'Creatures of the woods and the garden', cards: 18, parent: ANIMALS,
+    cover: art('public/decks/animal-symbolism/american_robin.webp'), lookupKey: 'expansion_woodlands_backyards', includedWithFounders: true },
+  { id: 'mountains-high-country', name: 'Mountains & High Country', subtitle: 'Creatures of the peaks and high meadows', cards: 18, parent: ANIMALS,
+    cover: art('public/decks/animal-symbolism/moose.webp'), lookupKey: 'expansion_mountains_high_country', includedWithFounders: true },
+];
 
 export const expansionById = (id: string) => EXPANSIONS.find((e) => e.id === id) || null;
