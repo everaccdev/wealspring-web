@@ -90,7 +90,7 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
                       <span class="price">{complete.amount}</span>
                       <span class="price-note">The complete deck: {data.name} and {expansions.length === 1 ? 'its expansion' : `all ${expansions.length} expansions`}, {totalCards} cards{saving && `. Save ${saving}.`}</span>
                     </div>
-                    <button type="button" class="btn btn-outline buy" data-item={`${data.id}:complete`}>Buy complete</button>
+                    <button type="button" class="btn btn-primary buy best" data-item={`${data.id}:complete`}>Buy complete</button>
                   </div>
                 )}
                 {!price && <p class="free-line">Coming soon.</p>}
@@ -152,7 +152,7 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
                   <p class="subtitle small">{x.subtitle}</p>
                   <p class="meta">{plural(x.cards.length, 'card')}</p>
                 </div>
-                {x.price && <button type="button" class="btn btn-outline buy" data-item={x.id}>Buy · {x.price.amount}</button>}
+                {x.price && <button type="button" class="btn btn-primary buy" data-item={x.id}>Buy · {x.price.amount}</button>}
               </div>
               <div class="cards compact">
                 {x.cards.map((c) => (
@@ -170,7 +170,7 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
                 <span class="price">{complete.amount}</span>
                 <span class="price-note">Everything above: {data.name} and {expansions.length === 1 ? 'its expansion' : `all ${expansions.length} expansions`}, {totalCards} cards{saving && `. Save ${saving} on buying them separately.`}</span>
               </div>
-              <button type="button" class="btn btn-primary buy" data-item={`${data.id}:complete`}>Buy complete</button>
+              <button type="button" class="btn btn-primary buy best" data-item={`${data.id}:complete`}>Buy complete</button>
             </div>
           )}
         </section>
@@ -321,8 +321,10 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
   .buy-row.wide { margin-top: 24px; }
   .price { display: block; font-family: var(--font-heading); font-size: 1.9rem; color: var(--cream); line-height: 1; }
   .price-note { display: block; margin-top: 6px; font-size: 0.85rem; color: var(--cream-dim); line-height: 1.45; }
-  .buy { white-space: nowrap; justify-content: center; }
-  .buy:disabled { opacity: 0.6; cursor: default; }
+  .buy { justify-content: center; white-space: nowrap; font-weight: 600; box-shadow: 0 6px 22px rgba(206, 166, 54, 0.28); }
+  .buy.best { background: var(--gold-light); box-shadow: 0 6px 26px rgba(234, 193, 124, 0.4); }
+  .buy.best:hover { background: #f3d39a; }
+  .buy:disabled { opacity: 0.6; cursor: default; transform: none; }
   .free-line { font-size: 0.95rem; color: var(--cream-dim); }
   .free-line strong { color: var(--cream); font-weight: 500; }
   .buy-box .btn-primary { align-self: flex-start; }

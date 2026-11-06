@@ -64,7 +64,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
                     <div class="actions">
                       {d.free
                         ? <span class="tag">Free in the app</span>
-                        : d.price && <button type="button" class="btn btn-outline buy" data-item={d.id}>Buy deck · {d.price.amount}</button>}
+                        : d.price && <button type="button" class="btn btn-primary buy" data-item={d.id}>Buy deck · {d.price.amount}</button>}
                       <a class="see" href={`/decks/${d.id}`}>See every card ›</a>
                     </div>
                   </div>
@@ -85,7 +85,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
                           <span>{d.name} and {d.expansions.length === 1 ? 'its expansion' : `all ${d.expansions.length} expansions`}, {d.totalCards} cards</span>
                           {d.saving && <span class="save">Save {d.saving} on buying them separately</span>}
                         </div>
-                        <button type="button" class="btn btn-primary buy" data-item={`${d.id}:complete`}>Buy complete · {d.complete.amount}</button>
+                        <button type="button" class="btn btn-primary buy best" data-item={`${d.id}:complete`}>Buy complete · {d.complete.amount}</button>
                       </div>
                     )}
 
@@ -101,7 +101,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
                               {x.samples.map((s) => <img src={s} alt="" loading="lazy" width="40" height="64" />)}
                             </div>
                           </div>
-                          {x.price && <button type="button" class="btn btn-outline buy small" data-item={x.id}>Buy · {x.price.amount}</button>}
+                          {x.price && <button type="button" class="btn btn-primary buy small" data-item={x.id}>Buy · {x.price.amount}</button>}
                         </li>
                       ))}
                     </ul>
@@ -172,9 +172,11 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
   .deck h3 a:hover, .exp-info h4 a:hover { color: var(--gold-light); }
   .back-link-img { flex: 0 0 auto; display: block; }
   .tag { display: inline-block; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-light); border: 1px solid rgba(234, 193, 124, 0.35); border-radius: 999px; padding: 6px 12px; }
-  .buy { justify-content: center; padding: 10px 18px; white-space: nowrap; }
-  .buy.small { padding: 8px 14px; font-size: 0.8rem; }
-  .buy:disabled { opacity: 0.6; cursor: default; }
+  .buy { justify-content: center; white-space: nowrap; padding: 12px 22px; font-weight: 600; box-shadow: 0 6px 22px rgba(206, 166, 54, 0.28); }
+  .buy.best { background: var(--gold-light); box-shadow: 0 6px 26px rgba(234, 193, 124, 0.4); }
+  .buy.best:hover { background: #f3d39a; }
+  .buy:disabled { opacity: 0.6; cursor: default; transform: none; }
+  .buy.small { padding: 10px 16px; font-size: 0.8rem; }
 
   .exp { border-top: 1px solid rgba(234, 193, 124, 0.18); }
   .exp summary { display: flex; align-items: center; gap: 12px; padding: 14px 20px; cursor: pointer; list-style: none; color: var(--cream); }
