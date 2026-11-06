@@ -48,9 +48,11 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
       <a class="back-link" href="/decks">← All decks</a>
 
       <div class="hero">
-        <div class="fan" aria-hidden="true">
-          <img class="fan-back" src={data.cardBackUrl} alt="" width="260" height="420" />
-          {fan.map((c, i) => <img class={`fan-card fan-${i}`} src={c.image || c.thumb} alt="" width="220" height="360" />)}
+        <div class="fan">
+          {fan.map((c, i) => <img class={`fan-card fan-${i}`} src={c.image || c.thumb} alt="" aria-hidden="true" width="220" height="360" />)}
+          <button type="button" class="fan-back viewable" data-image={data.cardBackUrl} data-name={`${data.name}`} data-keyword="The card back" aria-label={`See the ${data.name} card back larger`}>
+            <img src={data.cardBackUrl} alt={`${data.name} card back`} width="260" height="420" />
+          </button>
         </div>
 
         <div class="intro">
@@ -110,7 +112,7 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
         )}
         <div class="cards" data-grid>
           {base.map((c) => (
-            <button type="button" class="card" data-group={c.group || ''} data-image={c.image || c.thumb || ''} data-name={c.name} data-keyword={c.keyword || ''}>
+            <button type="button" class="card viewable" data-group={c.group || ''} data-image={c.image || c.thumb || ''} data-name={c.name} data-keyword={c.keyword || ''}>
               <img src={c.thumb || c.image} alt="" loading="lazy" width="160" height="260" />
               <span class="card-name">{c.name}</span>
               {c.keyword && <span class="card-keyword">{c.keyword}</span>}
@@ -142,7 +144,9 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
           {expansions.map((x) => (
             <div class="expansion" id={x.id}>
               <div class="exp-head">
-                <img class="exp-back" src={x.cardBackUrl} alt={`${x.name} card back`} loading="lazy" width="90" height="146" />
+                <button type="button" class="exp-back-btn viewable" data-image={x.cardBackUrl} data-name={x.name} data-keyword="The expansion’s card back" aria-label={`See the ${x.name} card back larger`}>
+                  <img class="exp-back" src={x.cardBackUrl} alt={`${x.name} card back`} loading="lazy" width="90" height="146" />
+                </button>
                 <div class="exp-text">
                   <h3>{x.name}</h3>
                   <p class="subtitle small">{x.subtitle}</p>
@@ -152,7 +156,7 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
               </div>
               <div class="cards compact">
                 {x.cards.map((c) => (
-                  <button type="button" class="card" data-image={c.image || c.thumb || ''} data-name={c.name} data-keyword={c.keyword || ''}>
+                  <button type="button" class="card viewable" data-image={c.image || c.thumb || ''} data-name={c.name} data-keyword={c.keyword || ''}>
                     <img src={c.thumb || c.image} alt="" loading="lazy" width="120" height="196" />
                     <span class="card-name">{c.name}</span>
                   </button>
@@ -200,9 +204,14 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
 
     <dialog class="viewer" aria-label="Card">
       <form method="dialog"><button class="close" aria-label="Close">×</button></form>
-      <img alt="" />
+      <div class="viewer-stage">
+        <button type="button" class="nav prev" aria-label="Previous card">‹</button>
+        <img alt="" />
+        <button type="button" class="nav next" aria-label="Next card">›</button>
+      </div>
       <p class="viewer-name"></p>
       <p class="viewer-keyword"></p>
+      <p class="viewer-count"></p>
     </dialog>
   </section>
 </Base>
@@ -242,14 +251,47 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
     });
   }));
 
-  // Any card opens large.
+  // Any card or card back opens large; ‹ › (or the arrow keys, or a swipe)
+  // step through everything on the page in order: the deck's card back, its
+  // cards (only the category shown), then each expansion's back and cards.
   const viewer = document.querySelector<HTMLDialogElement>('.viewer')!;
-  document.querySelectorAll<HTMLButtonElement>('.card').forEach((card) => card.addEventListener('click', () => {
-    viewer.querySelector('img')!.src = card.dataset.image || '';
-    viewer.querySelector('.viewer-name')!.textContent = card.dataset.name || '';
-    viewer.querySelector('.viewer-keyword')!.textContent = card.dataset.keyword || '';
+  const vImg = viewer.querySelector<HTMLImageElement>('.viewer-stage img')!;
+  const vName = viewer.querySelector('.viewer-name')!;
+  const vKeyword = viewer.querySelector('.viewer-keyword')!;
+  const vCount = viewer.querySelector('.viewer-count')!;
+  const items = () => [...document.querySelectorAll<HTMLElement>('.viewable')].filter((el) => !el.hidden);
+  let index = 0;
+  const preload = (el?: HTMLElement) => { if (el?.dataset.image) new Image().src = el.dataset.image; };
+  function show(i: number) {
+    const list = items();
+    if (!list.length) return;
+    index = (i + list.length) % list.length;
+    const el = list[index];
+    vImg.src = el.dataset.image || '';
+    vName.textContent = el.dataset.name || '';
+    vKeyword.textContent = el.dataset.keyword || '';
+    vCount.textContent = `${index + 1} of ${list.length}`;
+    preload(list[(index + 1) % list.length]);
+    preload(list[(index - 1 + list.length) % list.length]);
+  }
+  document.querySelectorAll<HTMLElement>('.viewable').forEach((el) => el.addEventListener('click', () => {
+    show(items().indexOf(el));
     viewer.showModal();
   }));
+  viewer.querySelector('.prev')!.addEventListener('click', () => show(index - 1));
+  viewer.querySelector('.next')!.addEventListener('click', () => show(index + 1));
+  viewer.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); show(index - 1); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); show(index + 1); }
+  });
+  let touchX: number | null = null;
+  viewer.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; }, { passive: true });
+  viewer.addEventListener('touchend', (e) => {
+    if (touchX == null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    touchX = null;
+    if (Math.abs(dx) > 40) show(index + (dx < 0 ? 1 : -1));
+  });
   viewer.addEventListener('click', (e) => { if (e.target === viewer) viewer.close(); });
 </script>
 
@@ -261,7 +303,9 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
   .hero { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 56px; align-items: center; }
   .fan { position: relative; height: 470px; }
   .fan img { position: absolute; width: 230px; height: auto; aspect-ratio: var(--aspect); object-fit: cover; border-radius: 12px; border: 1px solid rgba(234, 193, 124, 0.45); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55); }
-  .fan-back { left: 50%; top: 20px; transform: translateX(-50%); z-index: 3; width: 250px !important; }
+  .fan-back { position: absolute; left: 50%; top: 20px; transform: translateX(-50%); z-index: 3; width: 250px; padding: 0; border: none; background: none; cursor: zoom-in; }
+  .fan .fan-back img { position: static; width: 100%; transition: transform 0.2s; }
+  .fan-back:hover img, .fan-back:focus-visible img { transform: translateY(-4px); }
   .fan-0 { left: 8%; top: 46px; transform: rotate(-10deg); z-index: 1; }
   .fan-1 { right: 8%; top: 46px; transform: rotate(10deg); z-index: 2; }
   .intro h1 { font-size: clamp(2.4rem, 5.5vw, 3.8rem); font-weight: 300; margin: 12px 0 4px; line-height: 1.05; }
@@ -311,7 +355,8 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
 
   .expansion { margin-top: 28px; padding: 22px; border-radius: 16px; border: 1px solid rgba(234, 193, 124, 0.22); background: rgba(255, 255, 255, 0.025); scroll-margin-top: 110px; }
   .exp-head { display: flex; align-items: center; gap: 18px; }
-  .exp-back { width: 78px; height: auto; aspect-ratio: var(--aspect); object-fit: cover; border-radius: 8px; border: 1px solid rgba(234, 193, 124, 0.45); flex: 0 0 auto; }
+  .exp-back-btn { flex: 0 0 auto; padding: 0; border: none; background: none; cursor: zoom-in; }
+  .exp-back { display: block; width: 78px; height: auto; aspect-ratio: var(--aspect); object-fit: cover; border-radius: 8px; border: 1px solid rgba(234, 193, 124, 0.45); flex: 0 0 auto; }
   .exp-text { flex: 1; min-width: 0; }
   .exp-text h3 { font-size: 1.6rem; font-weight: 400; color: var(--cream); }
   .meta { margin-top: 4px; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
@@ -330,7 +375,13 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
 
   .viewer { position: fixed; inset: 0; margin: auto; border: none; padding: 28px 24px 20px; background: transparent; width: min(92vw, 440px); max-width: none; height: fit-content; max-height: 96vh; color: var(--cream); text-align: center; overflow: visible; }
   .viewer::backdrop { background: rgba(4, 6, 14, 0.85); }
-  .viewer img { display: block; width: 100%; height: auto; max-height: 74vh; object-fit: contain; border-radius: 14px; }
+  .viewer-stage { position: relative; }
+  .viewer-stage img { display: block; width: 100%; height: auto; max-height: 72vh; object-fit: contain; border-radius: 14px; }
+  .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(234, 193, 124, 0.5); background: rgba(10, 16, 32, 0.75); color: var(--gold-light); font-size: 1.8rem; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding-bottom: 4px; }
+  .nav:hover { background: rgba(234, 193, 124, 0.2); }
+  .prev { left: -64px; }
+  .next { right: -64px; }
+  .viewer-count { font-size: 0.75rem; letter-spacing: 0.1em; color: var(--gold); margin-top: 10px; }
   .viewer-name { font-family: var(--font-heading); font-size: 1.5rem; margin-top: 12px; }
   .viewer-keyword { font-size: 0.9rem; color: var(--cream-dim); margin-top: 4px; }
   .close { position: absolute; top: -6px; right: 0; background: none; border: none; color: var(--cream); font-size: 2rem; cursor: pointer; line-height: 1; }
@@ -339,9 +390,13 @@ const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
     .hero { grid-template-columns: 1fr; gap: 24px; }
     .fan { height: 360px; max-width: 360px; width: 100%; margin: 0 auto; }
     .fan img { width: 170px; }
-    .fan-back { width: 190px !important; }
+    .fan-back { width: 190px; }
     .block.two { grid-template-columns: 1fr; gap: 40px; }
     .how { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .prev { left: 6px; }
+    .next { right: 6px; }
   }
   @media (max-width: 560px) {
     .deck-page { padding-top: 110px; }
