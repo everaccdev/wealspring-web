@@ -1,66 +1,122 @@
 ---
-// Decks: the six launch decks (free for everyone) and the expansions for sale
-// (lib/catalog EXPANSIONS). Prices come from Stripe; a deck whose price can't
-// be read is shown without a Buy button rather than with a wrong price.
+// Decks: every Wealspring deck, paid ones first. Each deck shows its card back
+// and three of its cards; a deck with expansions opens to show them under it,
+// with the deck and all its expansions offered together for less (the deck +
+// $1 an expansion; amounts are Stripe's, see lib/catalog). Prices come from
+// Stripe; anything whose price can't be read shows no Buy button rather than
+// a wrong price.
 export const prerender = false;
 import Base from '../layouts/Base.astro';
-import { FREE_DECKS, EXPANSIONS } from '../lib/catalog';
+import { DECKS, completeLookupKey, type Deck } from '../lib/catalog';
 import { priceLabel } from '../lib/stripe';
 
-const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: await priceLabel(e.lookupKey) })));
+type Price = Awaited<ReturnType<typeof priceLabel>>;
+const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+
+const shown = await Promise.all(DECKS.map(async (d: Deck) => {
+  const [price, complete, expansions] = await Promise.all([
+    d.lookupKey ? priceLabel(d.lookupKey) : Promise.resolve(null as Price),
+    d.lookupKey && d.expansions.length ? priceLabel(completeLookupKey(d)) : Promise.resolve(null as Price),
+    Promise.all(d.expansions.map(async (x) => ({ ...x, price: await priceLabel(x.lookupKey) }))),
+  ]);
+  const separately = price && expansions.every((x) => x.price)
+    ? price.cents + expansions.reduce((n, x) => n + (x.price?.cents || 0), 0) : null;
+  const saving = complete && separately && separately > complete.cents ? money(separately - complete.cents) : null;
+  const cheapest = expansions.map((x) => x.price?.cents).filter((c): c is number => c != null).sort((a, b) => a - b)[0];
+  const totalCards = d.cards + d.expansions.reduce((n, x) => n + x.cards, 0);
+  return { ...d, price, complete, expansions, saving, from: cheapest != null ? money(cheapest) : null, totalCards };
+}));
+const paid = shown.filter((d) => !d.free);
+const free = shown.filter((d) => d.free);
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 ---
 
-<Base title="Decks — Wealspring" description="Every Wealspring deck: six free traditions, and expansions to add.">
+<Base title="Decks — Wealspring" description="Every Wealspring deck: six free traditions, more decks to add, and expansions that join the deck they belong to.">
   <section class="decks">
     <div class="container">
       <span class="section-label">Decks</span>
       <h1>Every <em>tradition</em>.</h1>
-      <p class="lead">Six decks come free with Wealspring. More decks and expansions add traditions to draw from; an expansion joins the deck it belongs to.</p>
-
-      <h2 class="group">Free for everyone</h2>
-      <div class="grid">
-        {FREE_DECKS.map((d) => (
-          <article class="deck">
-            <img src={d.cover} alt="" loading="lazy" width="240" height="398" />
-            <h3>{d.name}</h3>
-            <p>{d.subtitle} · {d.cards} cards</p>
-            <span class="tag">Included</span>
-          </article>
-        ))}
-      </div>
+      <p class="lead">Six decks come free with Wealspring. Add more whenever you like: each deck is yours to keep, and an expansion joins the deck it belongs to.</p>
+      <p class="founders-note">✦ Founders get every deck and expansion on this page. <a href="/founders">See founders</a></p>
 
       {[
-        { title: 'More decks', items: forSale.filter((d) => !d.parent) },
-        { title: 'Expansions', items: forSale.filter((d) => d.parent) },
-      ].filter((g) => g.items.length > 0).map((g) => (
+        { title: 'Decks to add', items: paid },
+        { title: 'Free with Wealspring', items: free },
+      ].map((group) => (
         <>
-          <h2 class="group">{g.title}</h2>
-          <div class="grid">
-            {g.items.map((d) => (
-              <article class="deck">
-                <img src={d.cover} alt="" loading="lazy" width="240" height="398" />
-                <h3>{d.name}</h3>
-                <p>{d.parent ? `For ${d.parent.name} · ` : ''}{d.subtitle} · {d.cards} cards</p>
-                {d.includedWithFounders && <span class="tag">Included for founders</span>}
-                {d.price && (
-                  <button type="button" class="btn btn-outline buy" data-deck={d.id}>
-                    Buy · {d.price.amount}
-                  </button>
+          <h2 class="group">{group.title}</h2>
+          <div class="shelf">
+            {group.items.map((d) => (
+              <article class="deck" id={d.id}>
+                <div class="deck-main">
+                  <img class="back" src={d.cover} alt={`${d.name} card back`} loading="lazy" width="140" height="224" />
+                  <div class="info">
+                    <h3>{d.name}</h3>
+                    <p class="sub">{d.subtitle}</p>
+                    <p class="meta">{plural(d.cards, 'card')}{d.expansions.length > 0 && ` · ${plural(d.expansions.length, 'expansion')}`}</p>
+                    {d.samples.length > 0 && (
+                      <div class="samples" aria-hidden="true">
+                        {d.samples.map((s) => <img src={s} alt="" loading="lazy" width="54" height="88" />)}
+                      </div>
+                    )}
+                    <div class="actions">
+                      {d.free
+                        ? <span class="tag">Free in the app</span>
+                        : d.price && <button type="button" class="btn btn-outline buy" data-item={d.id}>Buy deck · {d.price.amount}</button>}
+                    </div>
+                  </div>
+                </div>
+
+                {d.expansions.length > 0 && (
+                  <details class="exp">
+                    <summary>
+                      <span class="exp-title">{plural(d.expansions.length, 'expansion')} for this deck</span>
+                      <span class="exp-from">{d.complete ? `Complete deck ${d.complete.amount}` : d.from ? `from ${d.from}` : ''}</span>
+                      <span class="chev" aria-hidden="true"></span>
+                    </summary>
+
+                    {d.complete && (
+                      <div class="complete">
+                        <div class="complete-text">
+                          <strong>The complete deck</strong>
+                          <span>{d.name} and {d.expansions.length === 1 ? 'its expansion' : `all ${d.expansions.length} expansions`}, {d.totalCards} cards</span>
+                          {d.saving && <span class="save">Save {d.saving} on buying them separately</span>}
+                        </div>
+                        <button type="button" class="btn btn-primary buy" data-item={`${d.id}:complete`}>Buy complete · {d.complete.amount}</button>
+                      </div>
+                    )}
+
+                    <ul class="exp-list">
+                      {d.expansions.map((x) => (
+                        <li class="exp-item">
+                          <img class="exp-back" src={x.cover} alt="" loading="lazy" width="64" height="102" />
+                          <div class="exp-info">
+                            <h4>{x.name}</h4>
+                            <p class="sub">{x.subtitle}</p>
+                            <p class="meta">{plural(x.cards, 'card')}{!d.free && ` · needs the ${d.name} deck`}</p>
+                            <div class="samples small" aria-hidden="true">
+                              {x.samples.map((s) => <img src={s} alt="" loading="lazy" width="40" height="64" />)}
+                            </div>
+                          </div>
+                          {x.price && <button type="button" class="btn btn-outline buy small" data-item={x.id}>Buy · {x.price.amount}</button>}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 )}
               </article>
             ))}
           </div>
         </>
       ))}
-      {forSale.length === 0 && <p class="dim">The first expansions are on their way.</p>}
     </div>
   </section>
-
 </Base>
 
 <script>
-  // Buy opens Stripe's checkout, which asks for the email; the deck goes to
-  // the Wealspring account with that email (a new one if there isn't one).
+  // Buy opens Stripe's checkout, which asks for the email; what was bought
+  // goes to the Wealspring account with that email (a new one if there isn't
+  // one).
   document.querySelectorAll<HTMLButtonElement>('.buy').forEach((btn) => {
     const label = btn.textContent;
     btn.addEventListener('click', async () => {
@@ -70,7 +126,7 @@ const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: aw
         const res = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'deck', deckId: btn.dataset.deck }),
+          body: JSON.stringify({ kind: 'deck', item: btn.dataset.item }),
         });
         const data = await res.json();
         if (data.url) { location.href = data.url; return; }
@@ -82,19 +138,68 @@ const forSale = await Promise.all(EXPANSIONS.map(async (e) => ({ ...e, price: aw
       btn.textContent = label;
     });
   });
+  // A link to /decks#animal-symbolism opens that deck's expansions.
+  const target = location.hash && document.querySelector<HTMLElement>(location.hash);
+  target?.querySelector('details')?.setAttribute('open', '');
 </script>
 
 <style>
-  .decks { padding: 160px 0 40px; }
+  .decks { padding: 160px 0 80px; }
   .decks h1 { font-size: clamp(2.4rem, 6vw, 4rem); font-weight: 300; margin: 16px 0 12px; }
   .decks h1 em { font-style: italic; color: var(--gold-light); }
-  .group { font-size: 1.6rem; color: var(--cream); margin: 56px 0 24px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 32px 24px; }
-  .deck { display: flex; flex-direction: column; gap: 6px; }
-  .deck img { width: 100%; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234, 193, 124, 0.35); margin-bottom: 8px; }
-  .deck h3 { font-size: 1.25rem; color: var(--cream); }
-  .deck p { font-size: 0.85rem; color: var(--cream-dim); line-height: 1.5; }
-  .tag { align-self: flex-start; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); }
-  .buy { margin-top: 8px; justify-content: center; padding: 10px 16px; }
+  .founders-note { margin-top: 18px; font-size: 0.9rem; color: var(--cream-dim); }
+  .founders-note a { color: var(--gold-light); text-decoration: underline; text-underline-offset: 3px; }
+  .group { font-size: 1.6rem; color: var(--cream); margin: 56px 0 20px; }
+
+  .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 20px; align-items: start; }
+  .deck { border: 1px solid rgba(234, 193, 124, 0.22); border-radius: 16px; background: rgba(255, 255, 255, 0.03); overflow: hidden; scroll-margin-top: 110px; }
+  .deck-main { display: flex; gap: 20px; padding: 20px; }
+  .back { flex: 0 0 auto; width: 132px; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234, 193, 124, 0.4); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+  .info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .deck h3 { font-size: 1.45rem; color: var(--cream); line-height: 1.15; }
+  .sub { font-size: 0.88rem; color: var(--cream-dim); line-height: 1.45; }
+  .meta { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); margin-top: 2px; }
+  .samples { display: flex; gap: 6px; margin-top: 10px; }
+  .samples img { width: 54px; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 4px; border: 1px solid rgba(234, 193, 124, 0.25); }
+  .samples.small img { width: 40px; }
+  .actions { margin-top: auto; padding-top: 14px; }
+  .tag { display: inline-block; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-light); border: 1px solid rgba(234, 193, 124, 0.35); border-radius: 999px; padding: 6px 12px; }
+  .buy { justify-content: center; padding: 10px 18px; white-space: nowrap; }
+  .buy.small { padding: 8px 14px; font-size: 0.8rem; }
   .buy:disabled { opacity: 0.6; cursor: default; }
+
+  .exp { border-top: 1px solid rgba(234, 193, 124, 0.18); }
+  .exp summary { display: flex; align-items: center; gap: 12px; padding: 14px 20px; cursor: pointer; list-style: none; color: var(--cream); }
+  .exp summary::-webkit-details-marker { display: none; }
+  .exp summary:hover { background: rgba(234, 193, 124, 0.05); }
+  .exp-title { font-size: 0.95rem; }
+  .exp-from { margin-left: auto; font-size: 0.85rem; color: var(--gold-light); }
+  .chev { width: 8px; height: 8px; border-right: 1.5px solid var(--gold-light); border-bottom: 1.5px solid var(--gold-light); transform: rotate(45deg); transition: transform 0.2s; margin-left: 4px; }
+  .exp[open] .chev { transform: rotate(-135deg); }
+
+  .complete { display: flex; align-items: center; gap: 16px; margin: 4px 20px 12px; padding: 16px; border-radius: 12px; background: rgba(234, 193, 124, 0.08); border: 1px solid rgba(234, 193, 124, 0.35); }
+  .complete-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+  .complete-text strong { font-family: var(--font-heading); font-size: 1.2rem; font-weight: 500; color: var(--cream); }
+  .complete-text span { font-size: 0.85rem; color: var(--cream-dim); }
+  .complete-text .save { color: var(--gold-light); }
+
+  .exp-list { list-style: none; margin: 0; padding: 0 20px 12px; }
+  .exp-item { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .exp-item:first-child { border-top: none; }
+  .exp-back { width: 56px; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 6px; border: 1px solid rgba(234, 193, 124, 0.35); }
+  .exp-info { min-width: 0; }
+  .exp-info h4 { font-family: var(--font-heading); font-size: 1.15rem; font-weight: 500; color: var(--cream); }
+
+  @media (max-width: 560px) {
+    .decks { padding-top: 120px; }
+    .deck-main { gap: 14px; padding: 16px; }
+    .back { width: 96px; }
+    .complete { flex-direction: column; align-items: stretch; margin: 4px 16px 12px; }
+    .exp summary { padding: 14px 16px; }
+    .exp-title { font-size: 0.88rem; }
+    .exp-from { font-size: 0.8rem; text-align: right; }
+    .exp-list { padding: 0 16px 12px; }
+    .exp-item { grid-template-columns: 56px minmax(0, 1fr); align-items: start; }
+    .exp-item .buy { grid-column: 2; justify-self: start; }
+  }
 </style>
