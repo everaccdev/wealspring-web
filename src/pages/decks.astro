@@ -49,9 +49,11 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
             {group.items.map((d) => (
               <article class="deck" id={d.id}>
                 <div class="deck-main">
-                  <img class="back" src={d.cover} alt={`${d.name} card back`} loading="lazy" width="140" height="224" />
+                  <a class="back-link-img" href={`/decks/${d.id}`} aria-label={`See ${d.name}`}>
+                    <img class="back" src={d.cover} alt={`${d.name} card back`} loading="lazy" width="140" height="224" />
+                  </a>
                   <div class="info">
-                    <h3>{d.name}</h3>
+                    <h3><a href={`/decks/${d.id}`}>{d.name}</a></h3>
                     <p class="sub">{d.subtitle}</p>
                     <p class="meta">{plural(d.cards, 'card')}{d.expansions.length > 0 && ` · ${plural(d.expansions.length, 'expansion')}`}</p>
                     {d.samples.length > 0 && (
@@ -63,6 +65,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
                       {d.free
                         ? <span class="tag">Free in the app</span>
                         : d.price && <button type="button" class="btn btn-outline buy" data-item={d.id}>Buy deck · {d.price.amount}</button>}
+                      <a class="see" href={`/decks/${d.id}`}>See every card ›</a>
                     </div>
                   </div>
                 </div>
@@ -91,7 +94,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
                         <li class="exp-item">
                           <img class="exp-back" src={x.cover} alt="" loading="lazy" width="64" height="102" />
                           <div class="exp-info">
-                            <h4>{x.name}</h4>
+                            <h4><a href={`/decks/${d.id}#${x.id}`}>{x.name}</a></h4>
                             <p class="sub">{x.subtitle}</p>
                             <p class="meta">{plural(x.cards, 'card')}{!d.free && ` · needs the ${d.name} deck`}</p>
                             <div class="samples small" aria-hidden="true">
@@ -154,7 +157,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
   .shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 20px; align-items: start; }
   .deck { border: 1px solid rgba(234, 193, 124, 0.22); border-radius: 16px; background: rgba(255, 255, 255, 0.03); overflow: hidden; scroll-margin-top: 110px; }
   .deck-main { display: flex; gap: 20px; padding: 20px; }
-  .back { flex: 0 0 auto; width: 132px; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234, 193, 124, 0.4); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+  .back { display: block; width: 132px; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234, 193, 124, 0.4); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
   .info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .deck h3 { font-size: 1.45rem; color: var(--cream); line-height: 1.15; }
   .sub { font-size: 0.88rem; color: var(--cream-dim); line-height: 1.45; }
@@ -162,7 +165,12 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
   .samples { display: flex; gap: 6px; margin-top: 10px; }
   .samples img { width: 54px; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 4px; border: 1px solid rgba(234, 193, 124, 0.25); }
   .samples.small img { width: 40px; }
-  .actions { margin-top: auto; padding-top: 14px; }
+  .actions { margin-top: auto; padding-top: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+  .see { font-size: 0.85rem; color: var(--gold-light); }
+  .see:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .deck h3 a, .exp-info h4 a { color: inherit; }
+  .deck h3 a:hover, .exp-info h4 a:hover { color: var(--gold-light); }
+  .back-link-img { flex: 0 0 auto; display: block; }
   .tag { display: inline-block; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-light); border: 1px solid rgba(234, 193, 124, 0.35); border-radius: 999px; padding: 6px 12px; }
   .buy { justify-content: center; padding: 10px 18px; white-space: nowrap; }
   .buy.small { padding: 8px 14px; font-size: 0.8rem; }
