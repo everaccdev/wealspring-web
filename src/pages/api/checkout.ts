@@ -1,7 +1,9 @@
 // Starts a Stripe Checkout session for one of:
 //   { kind: 'founders', product: 'wealspring' | 'bundle',
 //     plan: 'monthly' | 'annual', email? }                  — subscription
-//   { kind: 'deck', deckId, email? }                          — one-time payment
+//   { kind: 'deck', item, email? }                            — one-time payment
+//     item: a paid deck's id, an expansion's id, or '<deckId>:complete'
+//     for a paid deck with all its expansions (lib/catalog purchasable)
 // Optional uid (from a future in-app link) attaches the purchase to that exact
 // account instead of resolving by email; paying for someone else's uid is a
 // gift, not a vulnerability (Whisp's reasoning, same here).
@@ -11,7 +13,7 @@ export const prerender = false;
 
 import type { APIRoute } from 'astro';
 import { stripe, priceByLookupKey } from '../../lib/stripe';
-import { APP, BUNDLE_APPS, FOUNDERS_PRODUCTS, expansionById, type FoundersPlan, type FoundersProduct } from '../../lib/catalog';
+import { APP, BUNDLE_APPS, FOUNDERS_PRODUCTS, purchasable, type FoundersPlan, type FoundersProduct } from '../../lib/catalog';
 import { getFounderCount } from '../../lib/founderCount';
 
 // Shown beside Stripe's email field, since the purchase goes to the account
@@ -20,6 +22,19 @@ const EMAIL_NOTE = {
   wealspring: 'Use the email you sign in to Wealspring with. New to Wealspring? We’ll set up your account and email you a link to choose a password.',
   bundle: 'Use the email you sign in to Whisp and Wealspring with. Premium goes to the account with this email in each app; if you’re new to either, we’ll set one up.',
 };
+
+// Whisp's own founders count (its site's public endpoint). The bundle makes
+// someone a Whisp founder too, so it also needs a place among Whisp's 500.
+// Null when it can't be read, and the bundle then isn't sold (fails closed).
+async function whispFounders(): Promise<{ capReached: boolean } | null> {
+  try {
+    const res = await fetch('https://getwhisp.app/api/founder-count', { signal: AbortSignal.timeout(6000) });
+    const data = await res.json();
+    return data?.available ? { capReached: !!data.capReached } : null;
+  } catch {
+    return null;
+  }
+}
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -44,6 +59,14 @@ export const POST: APIRoute = async ({ request, site }) => {
       if (!status || status.capReached) {
         return json(409, { error: 'cap_reached', message: 'Every founders place has been taken. Standard plans are available in the app.' });
       }
+      if (product === 'bundle') {
+        const whisp = await whispFounders();
+        if (!whisp || whisp.capReached) {
+          return json(409, { error: 'whisp_cap_reached', message: whisp
+            ? 'Every Whisp founders place has been taken, so the bundle is closed. Wealspring founders is still open.'
+            : 'The bundle can’t be checked right now. Please try again in a few minutes.' });
+        }
+      }
 
       // Wealspring alone keeps the older app tag too, which Whisp's webhook
       // also reads; the bundle carries only apps, naming both.
@@ -65,9 +88,9 @@ export const POST: APIRoute = async ({ request, site }) => {
     }
 
     if (body?.kind === 'deck') {
-      const deck = expansionById(String(body?.deckId || ''));
-      const priceId = deck && (await priceByLookupKey(deck.lookupKey))?.id;
-      if (!priceId) return json(404, { error: 'unknown_deck', message: 'That deck isn’t for sale.' });
+      const item = purchasable(String(body?.item || body?.deckId || ''));
+      const priceId = item && (await priceByLookupKey(item.lookupKey))?.id;
+      if (!item || !priceId) return json(404, { error: 'unknown_deck', message: 'That deck isn’t for sale.' });
       const session = await stripe.checkout.sessions.create({
         mode: 'payment',
         customer_email: email,
@@ -77,7 +100,9 @@ export const POST: APIRoute = async ({ request, site }) => {
         success_url: `${base}/decks/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${base}/decks`,
         custom_text: { submit: { message: EMAIL_NOTE.wealspring } },
-        metadata: { app: APP, apps: APP, kind: 'deck', deckId: deck.id, ...(uid && { uid }) },
+        // deckIds: everything bought (a complete deck is several); deckId,
+        // the first, for older readers.
+        metadata: { app: APP, apps: APP, kind: 'deck', deckId: item.ids[0], deckIds: item.ids.join(','), ...(uid && { uid }) },
       });
       return json(200, { url: session.url });
     }
