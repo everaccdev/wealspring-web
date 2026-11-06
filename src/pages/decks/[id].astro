@@ -1,0 +1,358 @@
+---
+// One deck's own page (/decks/<id>): what the deck is, its history, every card
+// in it (tap one to see it large), its expansions with their cards, how buying
+// works, and the ways to buy (the deck, an expansion, or the deck complete).
+// Content comes from the app (src/data/decks.json, written by the app repo's
+// scripts/export-site-decks.mjs); prices come from Stripe (lib/catalog), and
+// anything whose price can't be read shows no Buy button rather than a wrong
+// price.
+export const prerender = false;
+import Base from '../../layouts/Base.astro';
+import DECKS_DATA from '../../data/decks.json';
+import { DECKS as CATALOG, completeLookupKey } from '../../lib/catalog';
+import { priceLabel } from '../../lib/stripe';
+
+type Card = { id: string; name: string; keyword: string | null; group: string | null; expansion: string | null; thumb: string | null; image: string | null };
+const data = (DECKS_DATA as any[]).find((d) => d.id === Astro.params.id);
+const cat = CATALOG.find((d) => d.id === Astro.params.id);
+if (!data || !cat) return Astro.redirect('/decks');
+
+const money = (cents: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+const [price, complete, expPrices] = await Promise.all([
+  cat.lookupKey ? priceLabel(cat.lookupKey) : Promise.resolve(null),
+  cat.lookupKey && cat.expansions.length ? priceLabel(completeLookupKey(cat)) : Promise.resolve(null),
+  Promise.all(cat.expansions.map((x) => priceLabel(x.lookupKey))),
+]);
+const separately = price && expPrices.every(Boolean) ? price.cents + expPrices.reduce((n, p) => n + (p?.cents || 0), 0) : null;
+const saving = complete && separately && separately > complete.cents ? money(separately - complete.cents) : null;
+
+const cards: Card[] = data.cards;
+const base = cards.filter((c) => !c.expansion);
+const groups = [...new Set(base.map((c) => c.group).filter(Boolean))] as string[];
+const featured = (data.featured as string[]).map((id) => cards.find((c) => c.id === id)).filter(Boolean) as Card[];
+const expansions = (data.expansions as any[]).map((x, i) => ({
+  ...x,
+  cards: cards.filter((c) => c.expansion === x.id),
+  price: expPrices[i] ?? null,
+}));
+const totalCards = cards.length;
+const aspect = data.aspect || 973 / 1616;
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const others = CATALOG.filter((d) => !d.free && d.id !== data.id).slice(0, 4);
+const fan = [featured[1], featured[0]].filter(Boolean) as Card[];
+---
+
+<Base title={`${data.name} — Wealspring`} description={`${data.subtitle}. ${data.about}`} ogImage={data.cardBackUrl}>
+  <section class="deck-page" style={`--aspect: ${aspect}`}>
+    <div class="container">
+      <a class="back-link" href="/decks">← All decks</a>
+
+      <div class="hero">
+        <div class="fan" aria-hidden="true">
+          <img class="fan-back" src={data.cardBackUrl} alt="" width="260" height="420" />
+          {fan.map((c, i) => <img class={`fan-card fan-${i}`} src={c.image || c.thumb} alt="" width="220" height="360" />)}
+        </div>
+
+        <div class="intro">
+          <span class="section-label">{data.tradition}</span>
+          <h1>{data.name}</h1>
+          <p class="subtitle">{data.subtitle}</p>
+          <p class="about">{data.about}</p>
+          <ul class="facts">
+            <li>{plural(base.length, 'card')}</li>
+            {expansions.length > 0 && <li>{plural(expansions.length, 'expansion')}{expansions.length ? ` (+${expansions.reduce((n, x) => n + x.cards.length, 0)} cards)` : ''}</li>}
+            {groups.length > 0 && <li>{plural(groups.length, 'category', 'categories')}</li>}
+            {data.usesReversals && <li>Reversals optional</li>}
+          </ul>
+
+          <div class="buy-box">
+            {data.free ? (
+              <>
+                <p class="free-line"><strong>Free in the Wealspring app.</strong> Every account can draw from it.</p>
+                <a class="btn btn-primary" href="https://wealspring.web.app/">Open Wealspring</a>
+              </>
+            ) : (
+              <>
+                {price && (
+                  <div class="buy-row">
+                    <div>
+                      <span class="price">{price.amount}</span>
+                      <span class="price-note">The deck, yours to keep. No subscription.</span>
+                    </div>
+                    <button type="button" class="btn btn-primary buy" data-item={data.id}>Buy the deck</button>
+                  </div>
+                )}
+                {complete && (
+                  <div class="buy-row complete">
+                    <div>
+                      <span class="price">{complete.amount}</span>
+                      <span class="price-note">The complete deck: {data.name} and {expansions.length === 1 ? 'its expansion' : `all ${expansions.length} expansions`}, {totalCards} cards{saving && `. Save ${saving}.`}</span>
+                    </div>
+                    <button type="button" class="btn btn-outline buy" data-item={`${data.id}:complete`}>Buy complete</button>
+                  </div>
+                )}
+                {!price && <p class="free-line">Coming soon.</p>}
+              </>
+            )}
+            <p class="founders-note">✦ Founders get every deck and expansion. <a href="/founders">See founders</a></p>
+          </div>
+        </div>
+      </div>
+
+      <section class="block">
+        <h2>What’s inside</h2>
+        <p class="block-lead">{plural(base.length, 'card')}{groups.length > 0 && `, in ${plural(groups.length, 'category', 'categories')}`}. Tap any card to see it larger.</p>
+        {groups.length > 1 && (
+          <div class="chips" role="group" aria-label="Show cards by category">
+            <button type="button" class="chip active" data-group="">All</button>
+            {groups.map((g) => <button type="button" class="chip" data-group={g}>{g}</button>)}
+          </div>
+        )}
+        <div class="cards" data-grid>
+          {base.map((c) => (
+            <button type="button" class="card" data-group={c.group || ''} data-image={c.image || c.thumb || ''} data-name={c.name} data-keyword={c.keyword || ''}>
+              <img src={c.thumb || c.image} alt="" loading="lazy" width="160" height="260" />
+              <span class="card-name">{c.name}</span>
+              {c.keyword && <span class="card-keyword">{c.keyword}</span>}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section class="block two">
+        <div>
+          <h2>Its history</h2>
+          <p class="prose">{data.history}</p>
+        </div>
+        <div>
+          <h2>How a draw works</h2>
+          <ol class="steps">
+            <li><strong>Bring a question,</strong> or none at all.</li>
+            <li><strong>Draw a card</strong> from {data.name}, or let Wealspring draw from all your decks.</li>
+            <li><strong>Read what it holds:</strong> the card’s meaning and story, and a short reflection on what it might hold for your question.</li>
+            <li><strong>Keep it.</strong> Every draw is saved to your journal, and your collection grows as cards come to you.</li>
+          </ol>
+        </div>
+      </section>
+
+      {expansions.length > 0 && (
+        <section class="block">
+          <h2>{expansions.length === 1 ? 'Its expansion' : 'Its expansions'}</h2>
+          <p class="block-lead">An expansion adds its cards to {data.name}{!data.free && ', so it needs the deck (or buy the deck complete)'}. Each is yours to keep.</p>
+          {expansions.map((x) => (
+            <div class="expansion" id={x.id}>
+              <div class="exp-head">
+                <img class="exp-back" src={x.cardBackUrl} alt={`${x.name} card back`} loading="lazy" width="90" height="146" />
+                <div class="exp-text">
+                  <h3>{x.name}</h3>
+                  <p class="subtitle small">{x.subtitle}</p>
+                  <p class="meta">{plural(x.cards.length, 'card')}</p>
+                </div>
+                {x.price && <button type="button" class="btn btn-outline buy" data-item={x.id}>Buy · {x.price.amount}</button>}
+              </div>
+              <div class="cards compact">
+                {x.cards.map((c) => (
+                  <button type="button" class="card" data-image={c.image || c.thumb || ''} data-name={c.name} data-keyword={c.keyword || ''}>
+                    <img src={c.thumb || c.image} alt="" loading="lazy" width="120" height="196" />
+                    <span class="card-name">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {complete && (
+            <div class="buy-row complete wide">
+              <div>
+                <span class="price">{complete.amount}</span>
+                <span class="price-note">Everything above: {data.name} and {expansions.length === 1 ? 'its expansion' : `all ${expansions.length} expansions`}, {totalCards} cards{saving && `. Save ${saving} on buying them separately.`}</span>
+              </div>
+              <button type="button" class="btn btn-primary buy" data-item={`${data.id}:complete`}>Buy complete</button>
+            </div>
+          )}
+        </section>
+      )}
+
+      {!data.free && (
+        <section class="block">
+          <h2>How buying works</h2>
+          <ol class="how">
+            <li><span>1</span><p><strong>Check out with your email.</strong> Use the one you sign in to Wealspring with. Payment is through Stripe.</p></li>
+            <li><span>2</span><p><strong>It’s added to your account</strong> within a minute. New to Wealspring? We set up your account and email you a link to choose a password.</p></li>
+            <li><span>3</span><p><strong>Open Wealspring</strong> on your phone or the web and it’s in your Decks, yours to keep. No subscription.</p></li>
+          </ol>
+        </section>
+      )}
+
+      {others.length > 0 && (
+        <section class="block">
+          <h2>More decks</h2>
+          <div class="others">
+            {others.map((d) => (
+              <a class="other" href={`/decks/${d.id}`}>
+                <img src={d.cover} alt="" loading="lazy" width="120" height="196" />
+                <span>{d.name}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+
+    <dialog class="viewer" aria-label="Card">
+      <form method="dialog"><button class="close" aria-label="Close">×</button></form>
+      <img alt="" />
+      <p class="viewer-name"></p>
+      <p class="viewer-keyword"></p>
+    </dialog>
+  </section>
+</Base>
+
+<script>
+  // Buy opens Stripe's checkout (it asks for the email); what was bought goes
+  // to the Wealspring account with that email.
+  document.querySelectorAll<HTMLButtonElement>('.buy').forEach((btn) => {
+    const label = btn.textContent;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Opening checkout…';
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'deck', item: btn.dataset.item }),
+        });
+        const data = await res.json();
+        if (data.url) { location.href = data.url; return; }
+        alert(data.message || 'Checkout couldn’t start. Please try again.');
+      } catch {
+        alert('Network error. Check your connection and try again.');
+      }
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+  });
+
+  // Category chips filter the deck's cards.
+  const chips = document.querySelectorAll<HTMLButtonElement>('.chip');
+  chips.forEach((chip) => chip.addEventListener('click', () => {
+    chips.forEach((c) => c.classList.toggle('active', c === chip));
+    const g = chip.dataset.group;
+    document.querySelectorAll<HTMLElement>('[data-grid] .card').forEach((card) => {
+      card.hidden = !!g && card.dataset.group !== g;
+    });
+  }));
+
+  // Any card opens large.
+  const viewer = document.querySelector<HTMLDialogElement>('.viewer')!;
+  document.querySelectorAll<HTMLButtonElement>('.card').forEach((card) => card.addEventListener('click', () => {
+    viewer.querySelector('img')!.src = card.dataset.image || '';
+    viewer.querySelector('.viewer-name')!.textContent = card.dataset.name || '';
+    viewer.querySelector('.viewer-keyword')!.textContent = card.dataset.keyword || '';
+    viewer.showModal();
+  }));
+  viewer.addEventListener('click', (e) => { if (e.target === viewer) viewer.close(); });
+</script>
+
+<style>
+  .deck-page { padding: 130px 0 90px; }
+  .back-link { display: inline-block; font-size: 0.85rem; color: var(--cream-dim); margin-bottom: 28px; }
+  .back-link:hover { color: var(--gold-light); }
+
+  .hero { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 56px; align-items: center; }
+  .fan { position: relative; height: 470px; }
+  .fan img { position: absolute; width: 230px; height: auto; aspect-ratio: var(--aspect); object-fit: cover; border-radius: 12px; border: 1px solid rgba(234, 193, 124, 0.45); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55); }
+  .fan-back { left: 50%; top: 20px; transform: translateX(-50%); z-index: 3; width: 250px !important; }
+  .fan-0 { left: 8%; top: 46px; transform: rotate(-10deg); z-index: 1; }
+  .fan-1 { right: 8%; top: 46px; transform: rotate(10deg); z-index: 2; }
+  .intro h1 { font-size: clamp(2.4rem, 5.5vw, 3.8rem); font-weight: 300; margin: 12px 0 4px; line-height: 1.05; }
+  .subtitle { font-family: var(--font-heading); font-style: italic; font-size: 1.35rem; color: var(--gold-light); }
+  .subtitle.small { font-size: 1.05rem; }
+  .about { margin-top: 18px; font-size: 1rem; line-height: 1.7; color: var(--cream); }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 18px 0 0; padding: 0; }
+  .facts li { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-light); border: 1px solid rgba(234, 193, 124, 0.35); border-radius: 999px; padding: 6px 12px; }
+
+  .buy-box { margin-top: 26px; display: flex; flex-direction: column; gap: 12px; }
+  .buy-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 18px; border-radius: 14px; border: 1px solid rgba(234, 193, 124, 0.3); background: rgba(255, 255, 255, 0.03); }
+  .buy-row.complete { background: rgba(234, 193, 124, 0.07); border-color: rgba(234, 193, 124, 0.45); }
+  .buy-row.wide { margin-top: 24px; }
+  .price { display: block; font-family: var(--font-heading); font-size: 1.9rem; color: var(--cream); line-height: 1; }
+  .price-note { display: block; margin-top: 6px; font-size: 0.85rem; color: var(--cream-dim); line-height: 1.45; }
+  .buy { white-space: nowrap; justify-content: center; }
+  .buy:disabled { opacity: 0.6; cursor: default; }
+  .free-line { font-size: 0.95rem; color: var(--cream-dim); }
+  .free-line strong { color: var(--cream); font-weight: 500; }
+  .buy-box .btn-primary { align-self: flex-start; }
+  .buy-row .btn-primary { align-self: center; }
+  .founders-note { font-size: 0.85rem; color: var(--cream-dim); }
+  .founders-note a { color: var(--gold-light); text-decoration: underline; text-underline-offset: 3px; }
+
+  .block { margin-top: 80px; }
+  .block h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 400; color: var(--cream); }
+  .block-lead { margin-top: 8px; color: var(--cream-dim); font-size: 0.95rem; }
+  .block.two { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
+  .prose { margin-top: 14px; line-height: 1.8; color: var(--cream); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+  .chip { font: inherit; font-size: 0.8rem; color: var(--cream-dim); background: none; border: 1px solid rgba(234, 193, 124, 0.3); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+  .chip.active { background: var(--gold-light); border-color: var(--gold-light); color: #1a1407; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 24px 16px; margin-top: 24px; }
+  .cards.compact { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 18px 12px; margin-top: 18px; }
+  .card { display: flex; flex-direction: column; gap: 4px; padding: 0; background: none; border: none; text-align: left; cursor: zoom-in; color: inherit; font: inherit; }
+  .card[hidden] { display: none; }
+  .card img { width: 100%; height: auto; aspect-ratio: var(--aspect); object-fit: cover; border-radius: 8px; border: 1px solid rgba(234, 193, 124, 0.25); transition: transform 0.2s, border-color 0.2s; margin-bottom: 4px; }
+  .card:hover img, .card:focus-visible img { transform: translateY(-3px); border-color: rgba(234, 193, 124, 0.7); }
+  .card-name { font-family: var(--font-heading); font-size: 1.02rem; color: var(--cream); line-height: 1.2; }
+  .card-keyword { font-size: 0.75rem; color: var(--cream-dim); line-height: 1.35; }
+  .compact .card-name { font-size: 0.92rem; }
+
+  .steps { margin: 14px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; line-height: 1.6; color: var(--cream-dim); }
+  .steps strong { color: var(--cream); font-weight: 500; }
+
+  .expansion { margin-top: 28px; padding: 22px; border-radius: 16px; border: 1px solid rgba(234, 193, 124, 0.22); background: rgba(255, 255, 255, 0.025); scroll-margin-top: 110px; }
+  .exp-head { display: flex; align-items: center; gap: 18px; }
+  .exp-back { width: 78px; height: auto; aspect-ratio: var(--aspect); object-fit: cover; border-radius: 8px; border: 1px solid rgba(234, 193, 124, 0.45); flex: 0 0 auto; }
+  .exp-text { flex: 1; min-width: 0; }
+  .exp-text h3 { font-size: 1.6rem; font-weight: 400; color: var(--cream); }
+  .meta { margin-top: 4px; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+
+  .how { list-style: none; margin: 22px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .how li { padding: 20px; border-radius: 14px; border: 1px solid rgba(234, 193, 124, 0.2); background: rgba(255, 255, 255, 0.025); }
+  .how span { display: inline-flex; width: 30px; height: 30px; border-radius: 50%; align-items: center; justify-content: center; border: 1px solid var(--gold-light); color: var(--gold-light); font-family: var(--font-heading); font-size: 1.05rem; margin-bottom: 10px; }
+  .how p { font-size: 0.9rem; line-height: 1.6; color: var(--cream-dim); }
+  .how strong { color: var(--cream); font-weight: 500; }
+
+  .others { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px; margin-top: 20px; }
+  .other { display: flex; flex-direction: column; gap: 8px; color: var(--cream); }
+  .other img { width: 100%; height: auto; aspect-ratio: 973 / 1616; object-fit: cover; border-radius: 10px; border: 1px solid rgba(234, 193, 124, 0.3); transition: transform 0.2s; }
+  .other:hover img { transform: translateY(-3px); }
+  .other span { font-family: var(--font-heading); font-size: 1.05rem; }
+
+  .viewer { position: fixed; inset: 0; margin: auto; border: none; padding: 28px 24px 20px; background: transparent; width: min(92vw, 440px); max-width: none; height: fit-content; max-height: 96vh; color: var(--cream); text-align: center; overflow: visible; }
+  .viewer::backdrop { background: rgba(4, 6, 14, 0.85); }
+  .viewer img { display: block; width: 100%; height: auto; max-height: 74vh; object-fit: contain; border-radius: 14px; }
+  .viewer-name { font-family: var(--font-heading); font-size: 1.5rem; margin-top: 12px; }
+  .viewer-keyword { font-size: 0.9rem; color: var(--cream-dim); margin-top: 4px; }
+  .close { position: absolute; top: -6px; right: 0; background: none; border: none; color: var(--cream); font-size: 2rem; cursor: pointer; line-height: 1; }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; gap: 24px; }
+    .fan { height: 360px; max-width: 360px; width: 100%; margin: 0 auto; }
+    .fan img { width: 170px; }
+    .fan-back { width: 190px !important; }
+    .block.two { grid-template-columns: 1fr; gap: 40px; }
+    .how { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .deck-page { padding-top: 110px; }
+    .block { margin-top: 56px; }
+    .buy-row { flex-direction: column; align-items: stretch; }
+    .buy-row .btn-primary, .buy-row .btn-outline { align-self: stretch; }
+    .cards { grid-template-columns: repeat(3, 1fr); gap: 16px 10px; }
+    .cards.compact { grid-template-columns: repeat(3, 1fr); }
+    .card-keyword { display: none; }
+    .exp-head { flex-wrap: wrap; }
+    .exp-head .buy { width: 100%; }
+    .expansion { padding: 16px; }
+  }
+</style>
