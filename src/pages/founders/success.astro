@@ -5,6 +5,7 @@
 // emailed (handled on /auth/action).
 export const prerender = true;
 import MinimalLayout from '../../layouts/MinimalLayout.astro';
+import { BILLING_PORTAL_URL } from '../../lib/billing';
 ---
 
 <MinimalLayout title="Welcome, Founder — Wealspring">
@@ -31,6 +32,7 @@ import MinimalLayout from '../../layouts/MinimalLayout.astro';
         <p>Open Wealspring on your iPhone and sign in with the same email.</p>
       </li>
     </ol>
+    <p class="manage">To cancel, update your card or see invoices later: <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener">manage your subscription</a>, signing in with your checkout email.</p>
   </section>
 </MinimalLayout>
 
@@ -55,4 +57,6 @@ import MinimalLayout from '../../layouts/MinimalLayout.astro';
   }
   .steps h2 { font-size: 1.3rem; color: var(--cream); }
   .steps p { color: var(--cream-dim); }
+  .manage { color: var(--cream-dim); font-size: 0.9rem; margin-top: 8px; }
+  .manage a { color: var(--gold-light); }
 </style>

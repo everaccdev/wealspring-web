@@ -8,6 +8,7 @@ export const prerender = false;
 import Base from '../layouts/Base.astro';
 import { FOUNDERS_PRODUCTS, FOUNDER_CAP, type FoundersProduct } from '../lib/catalog';
 import { priceLabel } from '../lib/stripe';
+import { BILLING_PORTAL_URL } from '../lib/billing';
 
 const entries = await Promise.all((Object.keys(FOUNDERS_PRODUCTS) as FoundersProduct[]).map(async (key) => {
   const p = FOUNDERS_PRODUCTS[key];
@@ -81,6 +82,9 @@ const benefits = [
           <p class="lead">Founders pricing opens soon.</p>
         </div>
       )}
+      <p class="fine manage">
+        Already a founder? <a href={BILLING_PORTAL_URL} target="_blank" rel="noopener">Manage or cancel your subscription</a> with the email you checked out with.
+      </p>
     </div>
   </section>
 </Base>
@@ -192,6 +196,8 @@ const benefits = [
   .per { color: var(--cream-dim); }
   form { display: flex; flex-direction: column; gap: 8px; }
   .fine { font-size: 0.82rem; color: rgba(200, 196, 184, 0.6); }
+  .manage { margin-top: 18px; }
+  .manage a { color: var(--gold-light); }
   .error { min-height: 1.2em; font-size: 0.85rem; color: rgba(230, 120, 110, 0.95); }
   .btn { justify-content: center; }
   .btn:disabled { opacity: 0.6; cursor: default; transform: none; }
